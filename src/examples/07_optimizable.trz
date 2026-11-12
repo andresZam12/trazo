@@ -1,0 +1,36 @@
+// Lleno de constantes y código muerto para lucir el optimizador.
+// Activa "Optimizar" y abre la pestaña Optimización.
+entero lados = 4 + 2;
+entero tam = 10 * 6 + 0;
+decimal factor = 1.5 * 2;
+texto saludo = "Hola, " + "Trazo";
+logico depurar = falso;
+
+funcion entero doble(entero x) {
+  retornar x * 2;
+  mostrar("esto nunca se ejecuta");
+}
+
+si (depurar) {
+  mostrar("modo depuración");
+}
+
+si (verdadero) {
+  color("morado");
+} sino {
+  color("gris");
+}
+
+mientras (falso) {
+  avanzar(1000);
+}
+
+grosor(factor * 1);
+repetir lados veces {
+  avanzar(tam * 1 + doble(0) * 0);
+  girar_derecha(360 / lados);
+}
+
+mostrar(saludo);
+mostrar(no no verdadero);
+mostrar("Área aproximada: " + (tam * tam * 2 + 0));

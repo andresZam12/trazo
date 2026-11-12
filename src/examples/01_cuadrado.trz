@@ -1,0 +1,7 @@
+// Lo mínimo: un cuadrado con repetir
+color("azul");
+grosor(3);
+repetir 4 veces {
+  avanzar(150);
+  girar_derecha(90);
+}

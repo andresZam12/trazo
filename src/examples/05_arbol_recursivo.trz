@@ -1,0 +1,24 @@
+// Árbol fractal: una función recursiva que retorna cuántas ramas dibujó
+funcion entero rama(decimal largo, entero nivel) {
+  si (nivel == 0) {
+    retornar 0;
+  }
+  grosor(nivel);
+  si (nivel > 3) { color("naranja"); } sino { color("verde"); }
+  avanzar(largo);
+  girar_izquierda(25);
+  entero izq = rama(largo * 0.72, nivel - 1);
+  girar_derecha(50);
+  entero der = rama(largo * 0.72, nivel - 1);
+  girar_izquierda(25);
+  subir_lapiz();
+  retroceder(largo);
+  bajar_lapiz();
+  retornar 1 + izq + der;
+}
+
+subir_lapiz();
+ir_a(0, -220);
+bajar_lapiz();
+entero total = rama(110, 8);
+mostrar("Ramas dibujadas: " + total);

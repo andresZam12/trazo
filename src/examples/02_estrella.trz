@@ -1,0 +1,11 @@
+// Estrella de cinco puntas: girar 144 grados en cada punta
+color("amarillo");
+grosor(3);
+subir_lapiz();
+ir_a(-120, 40);
+bajar_lapiz();
+girar_derecha(90);
+repetir 5 veces {
+  avanzar(240);
+  girar_derecha(144);
+}

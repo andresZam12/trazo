@@ -1,0 +1,21 @@
+// Errores semánticos a propósito: la sintaxis es correcta pero el significado no
+entero x = "hola";
+decimal d = 2.5;
+entero e = d;
+avanzar("hola");
+girar_derecha(1, 2);
+mostrar(z);
+saltar(10);
+
+funcion entero doble(entero n) {
+  si (n > 0) { retornar n * 2; }
+}
+
+funcion saludar() {
+  retornar 5;
+}
+
+si (x + 1) { mostrar("raro"); }
+entero r = saludar();
+entero x = 3;
+retornar;

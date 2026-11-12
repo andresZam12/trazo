@@ -1,0 +1,7 @@
+// Errores léxicos a propósito
+entero precio = 3.;
+entero total = 1.2.3;
+texto nombre = "Trazo sin cerrar;
+decimal x = 10 @ 2;
+mostrar(precio # total);
+/* este comentario no se cierra

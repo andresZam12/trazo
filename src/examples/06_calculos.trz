@@ -1,0 +1,44 @@
+// Cálculos sin dibujo: factorial, fibonacci y división entera
+funcion entero factorial(entero n) {
+  si (n <= 1) { retornar 1; }
+  retornar n * factorial(n - 1);
+}
+
+funcion entero fibonacci(entero n) {
+  entero a = 0;
+  entero b = 1;
+  repetir n veces {
+    entero t = a + b;
+    a = b;
+    b = t;
+  }
+  retornar a;
+}
+
+funcion logico esPrimo(entero n) {
+  si (n < 2) { retornar falso; }
+  entero d = 2;
+  mientras (d * d <= n) {
+    si (n % d == 0) { retornar falso; }
+    d = d + 1;
+  }
+  retornar verdadero;
+}
+
+entero i = 1;
+mientras (i <= 10) {
+  mostrar(i + "! = " + factorial(i) + "   fib(" + i + ") = " + fibonacci(i));
+  i = i + 1;
+}
+
+texto primos = "Primos menores que 50:";
+entero n = 2;
+mientras (n < 50) {
+  si (esPrimo(n)) { primos = primos + " " + n; }
+  n = n + 1;
+}
+mostrar(primos);
+
+mostrar("7 / 2 = " + 7 / 2 + " (división entera)");
+mostrar("7.0 / 2 = " + 7.0 / 2 + " (división decimal)");
+mostrar("Dado: " + aleatorio(1, 6));

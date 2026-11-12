@@ -1,0 +1,13 @@
+// Errores sintácticos a propósito: el parser se recupera y los reporta todos
+entero x = ;
+entero n = 5
+mientras (n > 0) {
+  n = n - 1;
+}
+repetir 3 {
+  avanzar(10);
+}
+si n > 2 {
+  mostrar("mayor");
+}
+avanzar(10;

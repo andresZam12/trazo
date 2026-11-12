@@ -1,0 +1,35 @@
+// Flor: funciones con parámetros y ámbitos anidados
+funcion poligono(entero lados, decimal tam) {
+  repetir lados veces {
+    avanzar(tam);
+    girar_derecha(360 / lados);
+  }
+}
+
+funcion petalo(decimal tam) {
+  repetir 2 veces {
+    entero k = 0;
+    mientras (k < 18) {
+      avanzar(tam);
+      girar_derecha(5);
+      k = k + 1;
+    }
+    girar_derecha(90);
+  }
+}
+
+entero i = 0;
+mientras (i < 36) {
+  si (i % 2 == 0) { color("azul"); } sino { color("naranja"); }
+  poligono(6, 20 + i * 2);
+  girar_derecha(10);
+  i = i + 1;
+}
+
+color("verde");
+grosor(2);
+repetir 12 veces {
+  petalo(6);
+  girar_derecha(30);
+}
+mostrar("Listo: " + i + " hexágonos");

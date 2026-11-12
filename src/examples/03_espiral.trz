@@ -1,0 +1,14 @@
+// Espiral cuadrada: mientras y variables
+entero i = 0;
+decimal paso = 4;
+grosor(2);
+mientras (i < 80) {
+  si (i % 3 == 0) { color("rosado"); }
+  sino si (i % 3 == 1) { color("morado"); }
+  sino { color("azul"); }
+  avanzar(paso);
+  girar_derecha(91);
+  paso = paso + 4;
+  i = i + 1;
+}
+mostrar("Segmentos dibujados: " + i);
