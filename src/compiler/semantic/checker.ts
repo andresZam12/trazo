@@ -8,12 +8,25 @@ import type * as A from "../ast";
 import { crearError, ErrorCompilacion } from "../errors";
 import { FIRMAS_NATIVAS } from "../natives";
 import { SnapshotAmbito, Simbolo, TablaSimbolos } from "./symbolTable";
-import { esAsignable, esError, esNumerico, promover, sonComparables, TipoTrazo } from "./types";
+import { esAsignable, esError, esMusical, esNumerico, promover, sonComparables, TipoTrazo } from "./types";
+
+/** Resultado de validar un compás, para la pestaña Símbolos y la Partitura. */
+export interface InfoCompas {
+  numero: number;
+  linea: number;
+  columna: number;
+  /** Tiempos que suma el compás (null si alguna duración no se pudo calcular). */
+  suma: number | null;
+  esperado: number;
+  metrica: string;
+  valido: boolean;
+}
 
 export interface ResultadoSemantico {
   errores: ErrorCompilacion[];
   advertencias: ErrorCompilacion[];
   tablaSimbolos: SnapshotAmbito;
+  compases: InfoCompas[];
 }
 
 export class Chequeador {
@@ -22,6 +35,10 @@ export class Chequeador {
   private advertencias: ErrorCompilacion[] = [];
   /** Función que se está revisando (null en el nivel principal). */
   private funcionActual: { nombre: string; tipoRetorno: TipoTrazo } | null = null;
+  /** Métrica vigente; si el programa no declara una, se usa 4/4. */
+  private metrica = { numerador: 4, denominador: 4 };
+  private enCompas = false;
+  private compases: InfoCompas[] = [];
 
   constructor() {
     // Las nativas viven en el ámbito global, como cualquier otra función
@@ -44,7 +61,7 @@ export class Chequeador {
     this.registrarFunciones(programa);
     this.revisarSentencias(programa.sentencias);
     this.advertirNoUsadas(this.tabla.global);
-    return { errores: this.errores, advertencias: this.advertencias, tablaSimbolos: this.tabla.snapshot() };
+    return { errores: this.errores, advertencias: this.advertencias, tablaSimbolos: this.tabla.snapshot(), compases: this.compases };
   }
 
   // ---------------- utilidades de reporte ----------------
@@ -142,7 +159,101 @@ export class Chequeador {
       case "Bloque":
         this.bloque(s);
         return;
+      case "Tempo":
+        if (s.bpm < 1 || s.bpm > 400) this.error(`el tempo debe estar entre 1 y 400 pulsos por minuto (se escribió ${s.bpm})`, s, 5);
+        return;
+      case "CompasDecl":
+        if (![1, 2, 4, 8, 16].includes(s.denominador) || s.numerador < 1) {
+          this.error(`métrica inválida ${s.numerador}/${s.denominador}: el número de abajo debe ser 1, 2, 4, 8 o 16`, s, 6);
+        } else {
+          this.metrica = { numerador: s.numerador, denominador: s.denominador };
+        }
+        return;
+      case "Tocar":
+        this.exigirTipo(s.nota, "nota", "lo que se toca");
+        this.exigirTipo(s.duracion, "duracion", "la duración de 'tocar'");
+        if (!this.enCompas) this.advertencia("nota fuera de compás: no se valida la métrica", s, 5);
+        return;
+      case "Silencio":
+        this.exigirTipo(s.duracion, "duracion", "la duración del silencio");
+        return;
+      case "Acorde":
+        s.notas.forEach((n, i) => this.exigirTipo(n, "nota", `la nota ${i + 1} del acorde`));
+        this.exigirTipo(s.duracion, "duracion", "la duración del acorde");
+        if (!this.enCompas) this.advertencia("acorde fuera de compás: no se valida la métrica", s, 6);
+        return;
+      case "BloqueCompas":
+        return this.bloqueCompas(s);
     }
+  }
+
+  private exigirTipo(e: A.Expresion, esperado: TipoTrazo, que: string) {
+    const t = this.expresion(e);
+    if (!esError(t) && t !== esperado) this.error(`${que} debe ser de tipo ${esperado}, pero es ${t}`, e);
+  }
+
+  /**
+   * VALIDACIÓN DE COMPASES (análisis semántico): la gramática solo dice que un compás
+   * contiene notas; que sus duraciones sumen lo que exige la métrica es una regla de
+   * significado, como un chequeo de tipos. Se suman las duraciones (multiplicando por
+   * las repeticiones) y se comparan con la métrica vigente.
+   */
+  private bloqueCompas(s: A.BloqueCompas) {
+    if (this.enCompas) {
+      this.error("no se puede abrir un compás dentro de otro compás", s, 6);
+      return;
+    }
+    const numero = this.compases.length + 1;
+    s.numero = numero;
+    this.enCompas = true;
+    this.bloque(s.cuerpo); // revisa tipos y ámbitos como cualquier bloque
+    this.enCompas = false;
+
+    const { numerador, denominador } = this.metrica;
+    const esperado = (numerador * 4) / denominador; // en negras: 4/4 = 4, 3/4 = 3, 6/8 = 3
+    const metrica = `${numerador}/${denominador}`;
+    const suma = this.sumarCompas(s.cuerpo.sentencias);
+    let valido = suma !== null;
+    if (suma !== null && Math.abs(suma - esperado) > 1e-9) {
+      valido = false;
+      const diferencia = esperado - suma;
+      const partes = figurasPara(Math.abs(diferencia));
+      const verbo = diferencia > 0 ? (partes.plural ? "faltan" : "falta") : partes.plural ? "sobran" : "sobra";
+      this.error(
+        `el compás ${numero} suma ${fmt(suma)} tiempos pero la métrica ${metrica} exige ${fmt(esperado)} (${verbo} ${partes.texto})`,
+        s,
+        6,
+      );
+    }
+    this.compases.push({ numero, linea: s.linea, columna: s.columna, suma, esperado, metrica, valido });
+  }
+
+  /** Suma las duraciones de un compás. Devuelve null si algo no se puede calcular. */
+  private sumarCompas(lista: A.Sentencia[]): number | null {
+    let total = 0;
+    let ok = true;
+    for (const s of lista) {
+      if (s.tipo === "Tocar" || s.tipo === "Silencio" || s.tipo === "Acorde") {
+        const d = constValor(s.duracion);
+        if (d === null) {
+          this.error("dentro de un compás la duración debe ser fija (una figura como negra, o negra * 2)", s.duracion);
+          ok = false;
+        } else {
+          total += d;
+        }
+      } else if (s.tipo === "Repetir" && s.veces.tipo === "Literal" && s.veces.tipoLiteral === "entero") {
+        const sub = this.sumarCompas(s.cuerpo.sentencias);
+        if (sub === null) ok = false;
+        else total += (s.veces.valor as number) * sub;
+      } else if (s.tipo === "Repetir") {
+        this.error("dentro de un compás, 'repetir' necesita un número fijo de veces (por ejemplo: repetir 4 veces)", s.veces);
+        ok = false;
+      } else {
+        this.error("dentro de un compás solo se permiten tocar, silencio, acorde y repetir", s, 1);
+        ok = false;
+      }
+    }
+    return ok ? total : null;
   }
 
   /** Cada bloque { } abre un ámbito nuevo que se cierra al terminar. */
@@ -308,9 +419,12 @@ export class Chequeador {
       return "error" as const;
     };
 
+    // + con texto concatena cualquier cosa (también notas: "nota " + do4)
+    if (op === "+" && (a === "texto" || b === "texto")) return a === "vacio" || b === "vacio" ? incompatibles() : "texto";
+    if (esMusical(a) || esMusical(b)) return this.binariaMusical(e, a, b, incompatibles);
+
     switch (op) {
       case "+":
-        if (a === "texto" || b === "texto") return a === "vacio" || b === "vacio" ? incompatibles() : "texto";
         return esNumerico(a) && esNumerico(b) ? promover(a, b) : incompatibles();
       case "-":
       case "*":
@@ -334,6 +448,52 @@ export class Chequeador {
         this.error(`el operador '${op}' solo acepta valores logico, pero recibió ${a} y ${b}`, e, op.length);
         return "error";
     }
+  }
+
+  /**
+   * Reglas de los tipos musicales:
+   *   nota ± entero → nota (transponer) · nota - nota → entero (intervalo)
+   *   nota + nota → error · duracion * entero → duracion · notas se comparan con < >
+   */
+  private binariaMusical(e: A.Binaria, a: TipoTrazo, b: TipoTrazo, incompatibles: () => "error"): TipoTrazo {
+    const op = e.operador;
+    switch (op) {
+      case "+":
+        if (a === "nota" && b === "nota") {
+          this.error("no se pueden sumar dos notas; ¿querías un acorde? (acorde [do4, mi4] negra;)", e);
+          return "error";
+        }
+        if ((a === "nota" && b === "entero") || (a === "entero" && b === "nota")) return this.notaEnRango(e);
+        if (a === "duracion" && b === "duracion") return "duracion";
+        return incompatibles();
+      case "-":
+        if (a === "nota" && b === "entero") return this.notaEnRango(e);
+        if (a === "nota" && b === "nota") return "entero";
+        if (a === "duracion" && b === "duracion") return "duracion";
+        return incompatibles();
+      case "*":
+        if ((a === "duracion" && b === "entero") || (a === "entero" && b === "duracion")) return "duracion";
+        return incompatibles();
+      case "<":
+      case ">":
+      case "<=":
+      case ">=":
+      case "==":
+      case "!=":
+        return a === b ? "logico" : incompatibles();
+      default:
+        return incompatibles();
+    }
+  }
+
+  /** Si una transposición es constante, se verifica ya que quede dentro del rango MIDI. */
+  private notaEnRango(e: A.Binaria): TipoTrazo {
+    const v = constValor(e);
+    if (v !== null && (v < 0 || v > 127)) {
+      this.error(`la nota resultante queda fuera del rango MIDI 0 a 127 (da ${v})`, e);
+      return "error";
+    }
+    return "nota";
   }
 
   /**
@@ -372,6 +532,62 @@ export class Chequeador {
     e.tipoDato = sim.tipo;
     return sim.tipo;
   }
+}
+
+/**
+ * Valor constante de una expresión, si se puede calcular sin ejecutar el programa
+ * (literales y operaciones entre literales). Se usa para sumar las duraciones de un
+ * compás y para revisar el rango de una transposición constante.
+ */
+export function constValor(e: A.Expresion): number | null {
+  switch (e.tipo) {
+    case "Literal":
+      return typeof e.valor === "number" ? e.valor : null;
+    case "Unaria": {
+      const v = e.operador === "-" ? constValor(e.operando) : null;
+      return v === null ? null : -v;
+    }
+    case "Binaria": {
+      const a = constValor(e.izquierda);
+      const b = constValor(e.derecha);
+      if (a === null || b === null) return null;
+      if (e.operador === "+") return a + b;
+      if (e.operador === "-") return a - b;
+      if (e.operador === "*") return a * b;
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
+/** Formato corto de un número de tiempos: 4 → "4", 3.5 → "3.5". */
+function fmt(n: number): string {
+  return String(Math.round(n * 1000) / 1000);
+}
+
+/**
+ * Expresa una diferencia de tiempos en figuras, para sugerir qué falta o sobra:
+ * 0.5 → "una corchea"; 1.5 → "una negra y una corchea"; 2 → "una blanca".
+ */
+export function figurasPara(tiempos: number): { texto: string; plural: boolean } {
+  const figuras: [string, number][] = [["redonda", 4], ["blanca", 2], ["negra", 1], ["corchea", 0.5], ["semicorchea", 0.25]];
+  const partes: string[] = [];
+  let resto = tiempos;
+  let total = 0;
+  for (const [nombre, valor] of figuras) {
+    let n = 0;
+    while (resto >= valor - 1e-9) {
+      resto -= valor;
+      n++;
+    }
+    if (n > 0) {
+      partes.push(n === 1 ? `una ${nombre}` : `${n} ${nombre}s`);
+      total += n;
+    }
+  }
+  if (resto > 1e-9) partes.push(`${fmt(resto)} tiempos`);
+  return { texto: partes.join(" y "), plural: total > 1 };
 }
 
 /** ¿La sentencia termina con un retorno en todos sus caminos? */

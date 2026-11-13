@@ -2,7 +2,16 @@
 // Está separado del chequeador para que las reglas se lean como una tabla
 // y se puedan probar por separado.
 
-export type TipoTrazo = "entero" | "decimal" | "texto" | "logico" | "vacio" | "error";
+/**
+ * Tipos de Trazo. Los musicales se guardan internamente como números:
+ * - nota: número MIDI (do4 = 60), así transponer es sumar semitonos;
+ * - duracion: tiempos de negra (redonda = 4, negra = 1, corchea = 0.5).
+ */
+export type TipoTrazo = "entero" | "decimal" | "texto" | "logico" | "nota" | "duracion" | "vacio" | "error";
+
+export function esMusical(t: TipoTrazo): boolean {
+  return t === "nota" || t === "duracion";
+}
 
 /** "error" es un tipo comodín: evita avalanchas de errores en cascada. */
 export function esError(t: TipoTrazo): boolean {
