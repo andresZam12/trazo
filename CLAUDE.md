@@ -30,6 +30,7 @@ Por qué sobresale:
 | Precedencia y asociatividad | `parser.ts` (un nivel por precedencia) + `interpreter.ts` |
 | Análisis semántico / chequeador de tipos | `semantic/checker.ts` + pestaña Errores |
 | Ámbitos anidados / tabla de símbolos | `semantic/symbolTable.ts` + pestaña Símbolos |
+| Código intermedio (tres direcciones) | `intermedio.ts` + pestaña Código intermedio (sin optimizar / optimizado) |
 | Optimización | `optimizer.ts` + pestaña Optimización (antes y después) |
 | Compilador vs intérprete | Híbrido: front-end de compilador + intérprete tree-walking |
 | Tipos de lenguaje | Imperativo, tipado estático y fuerte, ámbito léxico |

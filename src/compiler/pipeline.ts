@@ -1,7 +1,7 @@
 // Pipeline del compilador: encadena las fases y mide cuánto tarda cada una.
 //
-//   fuente → Léxico → Sintáctico → Semántico → Optimización → Ejecución
-//            tokens    AST          tipos       AST'           comandos de dibujo
+//   fuente → Léxico → Sintáctico → Semántico → Código intermedio → Optimización → Ejecución
+//            tokens    AST          tipos       tres direcciones    AST' + TAC'    dibujo y sonido
 //
 // Cada fase corre solo si la anterior no tuvo errores (las advertencias no
 // detienen), pero cada fase reporta TODOS sus errores, no solo el primero.
@@ -9,6 +9,7 @@
 import type { Programa } from "./ast";
 import { contarNodos } from "./ast";
 import { ErrorCompilacion, Fase, ordenarErrores } from "./errors";
+import { generarIntermedio, type ResultadoIntermedio } from "./intermedio";
 import { interpretar } from "./interpreter";
 import { analizarLexico } from "./lexer";
 import type { ComandoDibujo, EventoSonido, MarcaCompas } from "./natives";
@@ -35,6 +36,9 @@ export interface ResultadoCompilacion {
   astOptimizado: Programa | null;
   tablaSimbolos: SnapshotAmbito | null;
   optimizaciones: CambioOptimizacion[];
+  /** Código de tres direcciones generado del AST y del AST optimizado. */
+  intermedio: ResultadoIntermedio | null;
+  intermedioOptimizado: ResultadoIntermedio | null;
   errores: ErrorCompilacion[];
   advertencias: ErrorCompilacion[];
   ejecucion: {
@@ -77,6 +81,8 @@ export function compilar(fuente: string, opciones: OpcionesCompilacion = {}): Re
     astOptimizado: null,
     tablaSimbolos: null,
     optimizaciones: [],
+    intermedio: null,
+    intermedioOptimizado: null,
     errores,
     advertencias,
     ejecucion: null,
@@ -97,7 +103,7 @@ export function compilar(fuente: string, opciones: OpcionesCompilacion = {}): Re
   errores.push(...lex.errores);
   fases.push({ nombre: "Léxico", estado: lex.errores.length ? "error" : "ok", ms: msLex });
   if (lex.errores.length) {
-    omitirDesde(["Sintáctico", "Semántico", "Optimización", "Ejecución"]);
+    omitirDesde(["Sintáctico", "Semántico", "Código intermedio", "Optimización", "Ejecución"]);
     return terminar();
   }
 
@@ -106,7 +112,7 @@ export function compilar(fuente: string, opciones: OpcionesCompilacion = {}): Re
   errores.push(...sin.errores);
   fases.push({ nombre: "Sintáctico", estado: sin.errores.length ? "error" : "ok", ms: msSin });
   if (sin.errores.length) {
-    omitirDesde(["Semántico", "Optimización", "Ejecución"]);
+    omitirDesde(["Semántico", "Código intermedio", "Optimización", "Ejecución"]);
     return terminar();
   }
   resultado.ast = sin.ast;
@@ -120,18 +126,24 @@ export function compilar(fuente: string, opciones: OpcionesCompilacion = {}): Re
   resultado.compases = sem.compases;
   fases.push({ nombre: "Semántico", estado: sem.errores.length ? "error" : "ok", ms: msSem });
   if (sem.errores.length) {
-    omitirDesde(["Optimización", "Ejecución"]);
+    omitirDesde(["Código intermedio", "Optimización", "Ejecución"]);
     return terminar();
   }
 
-  // 4. Optimización
+  // 4. Código intermedio (tres direcciones) a partir del AST ya validado
+  const [tac, msTac] = medir(() => generarIntermedio(sin.ast));
+  resultado.intermedio = tac;
+  fases.push({ nombre: "Código intermedio", estado: "ok", ms: msTac });
+
+  // 5. Optimización (sobre el AST; se regenera el código intermedio para comparar)
   const [opt, msOpt] = medir(() => optimizar(sin.ast));
+  resultado.intermedioOptimizado = generarIntermedio(opt.ast);
   resultado.astOptimizado = opt.ast;
   resultado.optimizaciones = opt.cambios;
   resultado.metricas.nodosDespues = contarNodos(opt.ast);
   fases.push({ nombre: "Optimización", estado: "ok", ms: msOpt });
 
-  // 5. Ejecución (también se ejecuta el otro árbol solo para comparar pasos)
+  // 6. Ejecución (también se ejecuta el otro árbol solo para comparar pasos)
   const programa = usarOptimizado ? opt.ast : sin.ast;
   const [ej, msEj] = medir(() => interpretar(programa));
   const otro = interpretar(usarOptimizado ? sin.ast : opt.ast);

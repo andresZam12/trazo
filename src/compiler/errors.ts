@@ -2,7 +2,7 @@
 // Se usa una sola estructura para que la UI pueda listarlos, agruparlos por fase
 // y subrayarlos en el editor sin saber qué fase los produjo.
 
-export type Fase = "Léxico" | "Sintáctico" | "Semántico" | "Optimización" | "Ejecución";
+export type Fase = "Léxico" | "Sintáctico" | "Semántico" | "Código intermedio" | "Optimización" | "Ejecución";
 
 export type Severidad = "error" | "advertencia";
 

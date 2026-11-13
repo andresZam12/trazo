@@ -114,7 +114,7 @@ describe("Pipeline con los ejemplos incluidos", () => {
 
   it("08 falla en la fase léxica con varios errores", () => {
     const r = compilar(porArchivo["08_error_lexico.trz"]);
-    expect(r.fases.map((f) => f.estado)).toEqual(["error", "omitida", "omitida", "omitida", "omitida"]);
+    expect(r.fases.map((f) => f.estado)).toEqual(["error", "omitida", "omitida", "omitida", "omitida", "omitida"]);
     expect(r.errores.length).toBeGreaterThanOrEqual(5);
   });
 

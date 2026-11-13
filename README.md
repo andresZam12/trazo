@@ -57,15 +57,19 @@ automáticamente antes de `dev`, `build` y `test`.
 ## Pipeline
 
 ```
-            ┌────────┐  tokens  ┌────────────┐  AST  ┌───────────┐ AST+tipos ┌──────────────┐ AST'  ┌───────────┐
- fuente ──► │ Léxico │ ───────► │ Sintáctico │ ────► │ Semántico │ ────────► │ Optimización │ ────► │ Ejecución │ ──► ComandoDibujo[]
-            └────────┘          └────────────┘       └───────────┘           └──────────────┘       └───────────┘     + consola
-            lexer.ts            parser.ts            checker.ts              optimizer.ts           interpreter.ts
-                                (descendente         symbolTable.ts                                 (tree-walking)
-                                 recursivo, LL(1))
+          ┌────────┐ tokens ┌────────────┐ AST ┌───────────┐ AST+tipos ┌───────────────────┐     ┌──────────────┐ AST' ┌───────────┐
+ fuente ─►│ Léxico │───────►│ Sintáctico │────►│ Semántico │──────────►│ Código intermedio │────►│ Optimización │─────►│ Ejecución │─► dibujo,
+          └────────┘        └────────────┘     └───────────┘           └───────────────────┘     └──────────────┘      └───────────┘   sonido
+          lexer.ts          parser.ts          checker.ts              intermedio.ts             optimizer.ts          interpreter.ts  y consola
+                            (descendente       symbolTable.ts          (tres direcciones)                              (tree-walking)
+                             recursivo, LL(1)) (tabla de símbolos)
 ```
 
 - Cada fase corre solo si la anterior no tuvo errores, pero reporta **todos** sus errores.
+- La **tabla de símbolos** no es una fase: es la estructura que construye y consulta el análisis semántico.
+- **Código intermedio:** el AST se traduce a código de tres direcciones (`t2 = t1 * 3`, `si_falso t3 ir_a L2`,
+  `param x` / `llamar f, 1`). Se genera antes y después de optimizar para comparar cuántas instrucciones se ahorran.
+  Se muestra en su pestaña; la ejecución la hace el intérprete sobre el AST.
 - Recuperación: el lexer salta el carácter inválido; el parser usa **modo pánico** (sincroniza en `;`, `}` o el inicio de una sentencia).
 - Trazo es **híbrido**: front-end de compilador (análisis + optimización) y un intérprete que recorre el AST.
 - El intérprete no dibuja: genera `ComandoDibujo[]` que el lienzo anima (se puede repetir o cambiar de velocidad).
@@ -122,12 +126,12 @@ muestra el código antes/después, las reglas aplicadas y los nodos y pasos ahor
 ## Estructura
 
 ```
-src/compiler/   tokens, lexer, ast, parser, semantic/{types,symbolTable,checker}, optimizer, printer,
+src/compiler/   tokens, lexer, ast, parser, semantic/{types,symbolTable,checker}, intermedio, optimizer, printer,
                 interpreter, natives, errors, pipeline   (TypeScript puro, sin React)
 src/components/ Editor (Monaco + lenguaje trazo), PipelineBar, Lienzo, tabs/*
 src/app/        page.tsx
 src/examples/   01_cuadrado … 10_error_semantico (.trz)
-tests/          lexer, parser, checker, optimizer, interpreter (+ todos los ejemplos)
+tests/          lexer, parser, checker, intermedio, optimizer, interpreter, musica (+ todos los ejemplos)
 ```
 
 ## Extras incluidos

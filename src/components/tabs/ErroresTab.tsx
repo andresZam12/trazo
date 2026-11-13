@@ -4,7 +4,7 @@
 
 import type { ErrorCompilacion, Fase } from "@/compiler/errors";
 
-const FASES: Fase[] = ["Léxico", "Sintáctico", "Semántico", "Optimización", "Ejecución"];
+const FASES: Fase[] = ["Léxico", "Sintáctico", "Semántico", "Código intermedio", "Optimización", "Ejecución"];
 
 interface Props {
   errores: ErrorCompilacion[];

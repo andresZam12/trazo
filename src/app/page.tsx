@@ -13,6 +13,7 @@ import PipelineBar from "@/components/PipelineBar";
 import ArbolTab from "@/components/tabs/ArbolTab";
 import ConsolaTab from "@/components/tabs/ConsolaTab";
 import ErroresTab from "@/components/tabs/ErroresTab";
+import IntermedioTab from "@/components/tabs/IntermedioTab";
 import OptimizacionTab from "@/components/tabs/OptimizacionTab";
 import SimbolosTab from "@/components/tabs/SimbolosTab";
 import TokensTab from "@/components/tabs/TokensTab";
@@ -20,8 +21,8 @@ import { compilar } from "@/compiler/pipeline";
 import type { ErrorCompilacion } from "@/compiler/errors";
 import { EJEMPLOS } from "@/examples";
 
-type Pestana = "Lienzo" | "Partitura" | "Tokens" | "Árbol" | "Símbolos" | "Optimización" | "Errores" | "Consola";
-const PESTANAS: Pestana[] = ["Lienzo", "Partitura", "Tokens", "Árbol", "Símbolos", "Optimización", "Errores", "Consola"];
+type Pestana = "Lienzo" | "Partitura" | "Tokens" | "Árbol" | "Símbolos" | "Intermedio" | "Optimización" | "Errores" | "Consola";
+const PESTANAS: Pestana[] = ["Lienzo", "Partitura", "Tokens", "Árbol", "Símbolos", "Intermedio", "Optimización", "Errores", "Consola"];
 const EJEMPLO_INICIAL = EJEMPLOS.find((e) => e.archivo.startsWith("04"))?.codigo ?? "";
 
 export default function Pagina() {
@@ -106,6 +107,7 @@ export default function Pagina() {
   const nAdvertencias = r.advertencias.length;
   const etiqueta = (p: Pestana) => {
     if (p === "Errores" && (nErrores || nAdvertencias)) return `Errores (${nErrores}${nAdvertencias ? ` · ⚠${nAdvertencias}` : ""})`;
+    if (p === "Intermedio") return "Código intermedio";
     if (p === "Optimización" && r.optimizaciones.length) return `Optimización (${r.optimizaciones.length})`;
     if (p === "Consola" && r.ejecucion?.consola.length) return `Consola (${r.ejecucion.consola.length})`;
     return p;
@@ -212,6 +214,9 @@ export default function Pagina() {
               />
             )}
             {pestana === "Símbolos" && <SimbolosTab tabla={r.tablaSimbolos} compases={r.compases} />}
+            {pestana === "Intermedio" && (
+              <IntermedioTab original={r.intermedio} optimizado={r.intermedioOptimizado} onResaltar={setResaltado} />
+            )}
             {pestana === "Optimización" && <OptimizacionTab r={r} />}
             {pestana === "Errores" && <ErroresTab errores={r.errores} advertencias={r.advertencias} onIr={irAError} />}
             {pestana === "Consola" && <ConsolaTab r={r} />}
