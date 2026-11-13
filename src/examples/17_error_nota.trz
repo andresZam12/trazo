@@ -1,0 +1,6 @@
+// Error léxico a propósito: la octava va de 0 a 8, así que do9 no es una nota.
+// Corrígelo a do5 para ver el siguiente error: no se pueden sumar dos notas (semántico).
+tempo 100;
+tocar do9 negra;
+nota acorde_mal = do4 + mi4;
+tocar acorde_mal negra;

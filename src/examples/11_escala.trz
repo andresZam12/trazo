@@ -1,0 +1,17 @@
+// Escala de do mayor: mientras + transposición.
+// Entre mi-fa y si-do hay medio tono (1 semitono); entre las demás notas, un tono (2).
+tempo 120;
+instrumento("piano");
+
+nota n = do4;
+entero paso = 0;
+mientras (paso < 8) {
+  tocar n negra;
+  si (paso == 2 o paso == 6) {
+    n = n + 1;
+  } sino {
+    n = n + 2;
+  }
+  paso = paso + 1;
+}
+mostrar("La escala terminó en " + (n - 2));

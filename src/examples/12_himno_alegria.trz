@@ -1,0 +1,15 @@
+// Himno de la Alegría (Ludwig van Beethoven, Novena Sinfonía, 1824). Dominio público.
+// Cada compás de 4/4 debe sumar 4 tiempos: prueba a borrar una corchea.
+tempo 120;
+compas 4/4;
+instrumento("piano");
+
+compas { tocar mi4 negra; tocar mi4 negra; tocar fa4 negra; tocar sol4 negra; }
+compas { tocar sol4 negra; tocar fa4 negra; tocar mi4 negra; tocar re4 negra; }
+compas { tocar do4 negra; tocar do4 negra; tocar re4 negra; tocar mi4 negra; }
+compas { tocar mi4 negra + corchea; tocar re4 corchea; tocar re4 blanca; }
+
+compas { tocar mi4 negra; tocar mi4 negra; tocar fa4 negra; tocar sol4 negra; }
+compas { tocar sol4 negra; tocar fa4 negra; tocar mi4 negra; tocar re4 negra; }
+compas { tocar do4 negra; tocar do4 negra; tocar re4 negra; tocar mi4 negra; }
+compas { tocar re4 negra + corchea; tocar do4 corchea; tocar do4 blanca; }

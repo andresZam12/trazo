@@ -1,0 +1,27 @@
+// Estrellita, ¿dónde estás? (melodía tradicional). Dominio público.
+// Una función con un parámetro de tipo nota: la misma frase desde cualquier nota.
+tempo 110;
+compas 4/4;
+instrumento("flauta");
+
+funcion frase(nota base) {
+  compas { tocar base negra; tocar base negra; tocar base + 7 negra; tocar base + 7 negra; }
+  compas { tocar base + 9 negra; tocar base + 9 negra; tocar base + 7 blanca; }
+}
+
+funcion bajada(nota base) {
+  compas { tocar base negra; tocar base negra; tocar base - 2 negra; tocar base - 2 negra; }
+  compas { tocar base - 3 negra; tocar base - 3 negra; tocar base - 5 blanca; }
+}
+
+funcion cierre() {
+  compas { tocar fa4 negra; tocar fa4 negra; tocar mi4 negra; tocar mi4 negra; }
+  compas { tocar re4 negra; tocar re4 negra; tocar do4 blanca; }
+}
+
+frase(do4);
+cierre();
+bajada(sol4);
+bajada(sol4);
+frase(do4);
+cierre();

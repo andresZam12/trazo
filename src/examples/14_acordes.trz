@@ -1,0 +1,12 @@
+// Progresión de acordes do mayor – la menor – fa mayor – sol mayor.
+// Un acorde suena con todas sus notas a la vez.
+tempo 80;
+compas 4/4;
+instrumento("organo");
+volumen(0.6);
+
+compas { acorde [do4, mi4, sol4] redonda; }
+compas { acorde [la3, do4, mi4] redonda; }
+compas { acorde [fa3, la3, do4] redonda; }
+compas { acorde [sol3, si3, re4] blanca; acorde [sol3, si3, re4, fa4] blanca; }
+compas { acorde [do4, mi4, sol4, do5] redonda; }

@@ -1,0 +1,21 @@
+// La melodía dibuja su propia forma: cada nota mueve el lápiz
+// hacia la derecha según su duración y hacia arriba según su altura.
+tempo 140;
+compas 4/4;
+instrumento("8bit");
+color("rosado");
+grosor(4);
+
+subir_lapiz();
+ir_a(-330, -40);
+bajar_lapiz();
+dibujar_melodia(verdadero);
+
+nota base = do4;
+repetir 4 veces {
+  compas {
+    tocar base corchea; tocar base + 4 corchea; tocar base + 7 corchea; tocar base + 12 corchea;
+    tocar base + 7 corchea; tocar base + 4 corchea; tocar base negra;
+  }
+  base = base + 5;
+}

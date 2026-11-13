@@ -1,0 +1,8 @@
+// Error semántico a propósito: los compases no suman lo que exige la métrica 4/4.
+// La sintaxis es correcta; el problema es de significado (la duración del compás).
+tempo 100;
+compas 4/4;
+
+compas { tocar do4 negra; tocar re4 negra; tocar mi4 negra; tocar fa4 negra; }
+compas { tocar sol4 negra; tocar la4 negra; tocar sol4 negra; tocar fa4 corchea; }
+compas { tocar mi4 blanca; tocar re4 blanca; tocar do4 negra; }

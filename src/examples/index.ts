@@ -52,5 +52,40 @@ export const EJEMPLOS: Ejemplo[] = [
     "archivo": "10_error_semantico.trz",
     "nombre": "error semantico",
     "codigo": "// Errores semánticos a propósito: la sintaxis es correcta pero el significado no\nentero x = \"hola\";\ndecimal d = 2.5;\nentero e = d;\navanzar(\"hola\");\ngirar_derecha(1, 2);\nmostrar(z);\nsaltar(10);\n\nfuncion entero doble(entero n) {\n  si (n > 0) { retornar n * 2; }\n}\n\nfuncion saludar() {\n  retornar 5;\n}\n\nsi (x + 1) { mostrar(\"raro\"); }\nentero r = saludar();\nentero x = 3;\nretornar;\n"
+  },
+  {
+    "archivo": "11_escala.trz",
+    "nombre": "escala",
+    "codigo": "// Escala de do mayor: mientras + transposición.\n// Entre mi-fa y si-do hay medio tono (1 semitono); entre las demás notas, un tono (2).\ntempo 120;\ninstrumento(\"piano\");\n\nnota n = do4;\nentero paso = 0;\nmientras (paso < 8) {\n  tocar n negra;\n  si (paso == 2 o paso == 6) {\n    n = n + 1;\n  } sino {\n    n = n + 2;\n  }\n  paso = paso + 1;\n}\nmostrar(\"La escala terminó en \" + (n - 2));\n"
+  },
+  {
+    "archivo": "12_himno_alegria.trz",
+    "nombre": "himno alegria",
+    "codigo": "// Himno de la Alegría (Ludwig van Beethoven, Novena Sinfonía, 1824). Dominio público.\n// Cada compás de 4/4 debe sumar 4 tiempos: prueba a borrar una corchea.\ntempo 120;\ncompas 4/4;\ninstrumento(\"piano\");\n\ncompas { tocar mi4 negra; tocar mi4 negra; tocar fa4 negra; tocar sol4 negra; }\ncompas { tocar sol4 negra; tocar fa4 negra; tocar mi4 negra; tocar re4 negra; }\ncompas { tocar do4 negra; tocar do4 negra; tocar re4 negra; tocar mi4 negra; }\ncompas { tocar mi4 negra + corchea; tocar re4 corchea; tocar re4 blanca; }\n\ncompas { tocar mi4 negra; tocar mi4 negra; tocar fa4 negra; tocar sol4 negra; }\ncompas { tocar sol4 negra; tocar fa4 negra; tocar mi4 negra; tocar re4 negra; }\ncompas { tocar do4 negra; tocar do4 negra; tocar re4 negra; tocar mi4 negra; }\ncompas { tocar re4 negra + corchea; tocar do4 corchea; tocar do4 blanca; }\n"
+  },
+  {
+    "archivo": "13_estrellita.trz",
+    "nombre": "estrellita",
+    "codigo": "// Estrellita, ¿dónde estás? (melodía tradicional). Dominio público.\n// Una función con un parámetro de tipo nota: la misma frase desde cualquier nota.\ntempo 110;\ncompas 4/4;\ninstrumento(\"flauta\");\n\nfuncion frase(nota base) {\n  compas { tocar base negra; tocar base negra; tocar base + 7 negra; tocar base + 7 negra; }\n  compas { tocar base + 9 negra; tocar base + 9 negra; tocar base + 7 blanca; }\n}\n\nfuncion bajada(nota base) {\n  compas { tocar base negra; tocar base negra; tocar base - 2 negra; tocar base - 2 negra; }\n  compas { tocar base - 3 negra; tocar base - 3 negra; tocar base - 5 blanca; }\n}\n\nfuncion cierre() {\n  compas { tocar fa4 negra; tocar fa4 negra; tocar mi4 negra; tocar mi4 negra; }\n  compas { tocar re4 negra; tocar re4 negra; tocar do4 blanca; }\n}\n\nfrase(do4);\ncierre();\nbajada(sol4);\nbajada(sol4);\nfrase(do4);\ncierre();\n"
+  },
+  {
+    "archivo": "14_acordes.trz",
+    "nombre": "acordes",
+    "codigo": "// Progresión de acordes do mayor – la menor – fa mayor – sol mayor.\n// Un acorde suena con todas sus notas a la vez.\ntempo 80;\ncompas 4/4;\ninstrumento(\"organo\");\nvolumen(0.6);\n\ncompas { acorde [do4, mi4, sol4] redonda; }\ncompas { acorde [la3, do4, mi4] redonda; }\ncompas { acorde [fa3, la3, do4] redonda; }\ncompas { acorde [sol3, si3, re4] blanca; acorde [sol3, si3, re4, fa4] blanca; }\ncompas { acorde [do4, mi4, sol4, do5] redonda; }\n"
+  },
+  {
+    "archivo": "15_melodia_que_dibuja.trz",
+    "nombre": "melodia que dibuja",
+    "codigo": "// La melodía dibuja su propia forma: cada nota mueve el lápiz\n// hacia la derecha según su duración y hacia arriba según su altura.\ntempo 140;\ncompas 4/4;\ninstrumento(\"8bit\");\ncolor(\"rosado\");\ngrosor(4);\n\nsubir_lapiz();\nir_a(-330, -40);\nbajar_lapiz();\ndibujar_melodia(verdadero);\n\nnota base = do4;\nrepetir 4 veces {\n  compas {\n    tocar base corchea; tocar base + 4 corchea; tocar base + 7 corchea; tocar base + 12 corchea;\n    tocar base + 7 corchea; tocar base + 4 corchea; tocar base negra;\n  }\n  base = base + 5;\n}\n"
+  },
+  {
+    "archivo": "16_error_compas.trz",
+    "nombre": "error compas",
+    "codigo": "// Error semántico a propósito: los compases no suman lo que exige la métrica 4/4.\n// La sintaxis es correcta; el problema es de significado (la duración del compás).\ntempo 100;\ncompas 4/4;\n\ncompas { tocar do4 negra; tocar re4 negra; tocar mi4 negra; tocar fa4 negra; }\ncompas { tocar sol4 negra; tocar la4 negra; tocar sol4 negra; tocar fa4 corchea; }\ncompas { tocar mi4 blanca; tocar re4 blanca; tocar do4 negra; }\n"
+  },
+  {
+    "archivo": "17_error_nota.trz",
+    "nombre": "error nota",
+    "codigo": "// Error léxico a propósito: la octava va de 0 a 8, así que do9 no es una nota.\n// Corrígelo a do5 para ver el siguiente error: no se pueden sumar dos notas (semántico).\ntempo 100;\ntocar do9 negra;\nnota acorde_mal = do4 + mi4;\ntocar acorde_mal negra;\n"
   }
 ];
