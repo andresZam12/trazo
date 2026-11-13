@@ -4,8 +4,9 @@
 // Todos los nodos guardan línea y columna para poder resaltar su código en el editor.
 
 import type { TipoTrazo } from "./semantic/types";
+import { nombreNota } from "./tokens";
 
-export type TipoDeclarado = "entero" | "decimal" | "texto" | "logico";
+export type TipoDeclarado = "entero" | "decimal" | "texto" | "logico" | "nota" | "duracion";
 
 interface NodoBase {
   linea: number;
@@ -115,7 +116,65 @@ export interface Bloque extends NodoBase {
   sentencias: Sentencia[];
 }
 
-export type Sentencia = DeclVar | DeclFuncion | Asignacion | Si | Mientras | Repetir | Retornar | LlamadaSent | Bloque;
+// ---------------- Sentencias musicales ----------------
+
+/** tempo 110;  → pulsos (negras) por minuto */
+export interface Tempo extends NodoBase {
+  tipo: "Tempo";
+  bpm: number;
+}
+
+/** compas 3/4;  → cambia la métrica con la que se validan los compases siguientes */
+export interface CompasDecl extends NodoBase {
+  tipo: "CompasDecl";
+  numerador: number;
+  denominador: number;
+}
+
+/** tocar do4 negra; */
+export interface Tocar extends NodoBase {
+  tipo: "Tocar";
+  nota: Expresion;
+  duracion: Expresion;
+}
+
+/** silencio corchea; */
+export interface Silencio extends NodoBase {
+  tipo: "Silencio";
+  duracion: Expresion;
+}
+
+/** acorde [do4, mi4, sol4] blanca; */
+export interface Acorde extends NodoBase {
+  tipo: "Acorde";
+  notas: Expresion[];
+  duracion: Expresion;
+}
+
+/** compas { ... }  → un compás cuya duración total valida el chequeador */
+export interface BloqueCompas extends NodoBase {
+  tipo: "BloqueCompas";
+  cuerpo: Bloque;
+  /** Número del compás en orden de aparición (lo asigna el chequeador). */
+  numero?: number;
+}
+
+export type Sentencia =
+  | DeclVar
+  | DeclFuncion
+  | Asignacion
+  | Si
+  | Mientras
+  | Repetir
+  | Retornar
+  | LlamadaSent
+  | Bloque
+  | Tempo
+  | CompasDecl
+  | Tocar
+  | Silencio
+  | Acorde
+  | BloqueCompas;
 
 export interface Programa extends NodoBase {
   tipo: "Programa";
@@ -160,7 +219,17 @@ export function hijosDe(nodo: Nodo): Nodo[] {
       return nodo.argumentos;
     case "Literal":
     case "Identificador":
+    case "Tempo":
+    case "CompasDecl":
       return [];
+    case "Tocar":
+      return [nodo.nota, nodo.duracion];
+    case "Silencio":
+      return [nodo.duracion];
+    case "Acorde":
+      return [...nodo.notas, nodo.duracion];
+    case "BloqueCompas":
+      return [nodo.cuerpo];
   }
 }
 
@@ -184,7 +253,15 @@ export function etiquetaDe(nodo: Nodo): string {
     case "Unaria": return `Unaria ${nodo.operador}`;
     case "Llamada": return `Llamada ${nodo.nombre}()`;
     case "Identificador": return `Ident ${nodo.nombre}`;
+    case "Tempo": return `Tempo ${nodo.bpm}`;
+    case "CompasDecl": return `Métrica ${nodo.numerador}/${nodo.denominador}`;
+    case "Tocar": return "Tocar";
+    case "Silencio": return "Silencio";
+    case "Acorde": return `Acorde (${nodo.notas.length} notas)`;
+    case "BloqueCompas": return `Compás${nodo.numero ? " " + nodo.numero : ""}`;
     case "Literal":
+      if (nodo.tipoLiteral === "nota") return `Nota ${nombreNota(nodo.valor as number)} (midi ${nodo.valor})`;
+      if (nodo.tipoLiteral === "duracion") return `Duración ${nodo.valor} tiempo(s)`;
       return `Literal ${typeof nodo.valor === "string" ? JSON.stringify(nodo.valor) : String(nodo.valor)}`;
   }
 }

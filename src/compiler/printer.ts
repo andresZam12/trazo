@@ -3,6 +3,7 @@
 // y después de optimizar. Solo pone paréntesis donde la precedencia lo exige.
 
 import type * as A from "./ast";
+import { FIGURAS, nombreNota } from "./tokens";
 
 const PRECEDENCIA: Record<A.OperadorBinario, number> = {
   o: 1,
@@ -59,7 +60,40 @@ export function imprimirSentencia(s: A.Sentencia, nivel = 0): string {
       return `${i}${imprimirExpresion(s.llamada)};`;
     case "Bloque":
       return i + imprimirBloque(s, nivel);
+    case "Tempo":
+      return `${i}tempo ${s.bpm};`;
+    case "CompasDecl":
+      return `${i}compas ${s.numerador}/${s.denominador};`;
+    case "Tocar":
+      return `${i}tocar ${imprimirExpresion(s.nota)} ${imprimirExpresion(s.duracion)};`;
+    case "Silencio":
+      return `${i}silencio ${imprimirExpresion(s.duracion)};`;
+    case "Acorde":
+      return `${i}acorde [${s.notas.map((n) => imprimirExpresion(n)).join(", ")}] ${imprimirExpresion(s.duracion)};`;
+    case "BloqueCompas":
+      return `${i}compas ${imprimirBloque(s.cuerpo, nivel)}`;
   }
+}
+
+/**
+ * Una duración en tiempos → código, como suma de figuras de mayor a menor:
+ * 2 → "blanca"; 1.5 → "negra + corchea"; 3 → "blanca + negra"; 8 → "redonda * 2".
+ * Así cualquier duración plegada por el optimizador se puede volver a escribir.
+ */
+export function imprimirDuracion(tiempos: number): string {
+  const redondas = Math.floor(tiempos / 4);
+  let resto = tiempos - redondas * 4;
+  const partes: string[] = [];
+  if (redondas > 1) partes.push(`redonda * ${redondas}`);
+  else if (redondas === 1) partes.push("redonda");
+  for (const [nombre, valor] of Object.entries(FIGURAS)) {
+    if (nombre === "redonda") continue;
+    if (resto >= valor - 1e-9) {
+      partes.push(nombre);
+      resto -= valor;
+    }
+  }
+  return partes.length ? partes.join(" + ") : "negra * 0";
 }
 
 function imprimirSi(s: A.Si, nivel: number): string {
@@ -80,14 +114,21 @@ export function imprimirLiteral(l: A.Literal): string {
     }
     case "entero":
       return String(l.valor);
+    case "nota":
+      return nombreNota(l.valor as number);
+    case "duracion":
+      return imprimirDuracion(l.valor as number);
   }
 }
 
 /** `padre` es la precedencia del contexto; si la del nodo es menor, va entre paréntesis. */
 export function imprimirExpresion(e: A.Expresion, padre = 0): string {
   switch (e.tipo) {
-    case "Literal":
-      return imprimirLiteral(e);
+    case "Literal": {
+      const r = imprimirLiteral(e);
+      // Una duración compuesta ("negra + corchea") necesita paréntesis dentro de un producto
+      return e.tipoLiteral === "duracion" && r.includes(" + ") && padre > PRECEDENCIA["+"] ? `(${r})` : r;
+    }
     case "Identificador":
       return e.nombre;
     case "Llamada":

@@ -15,7 +15,7 @@
 
 import type * as A from "./ast";
 import { crearError, ErrorCompilacion } from "./errors";
-import { TIPOS_DE_DATO, TipoToken, Token } from "./tokens";
+import { FIGURAS, FIGURAS_TOKEN, TIPOS_DE_DATO, TipoToken, Token } from "./tokens";
 
 /** Excepción interna para salir de la regla actual y sincronizar. */
 class ErrorSintactico extends Error {}
@@ -34,6 +34,11 @@ const INICIO_SENTENCIA = new Set<TipoToken>([
   TipoToken.REPETIR,
   TipoToken.RETORNAR,
   TipoToken.LLAVE_IZQ,
+  TipoToken.TEMPO,
+  TipoToken.COMPAS,
+  TipoToken.TOCAR,
+  TipoToken.SILENCIO,
+  TipoToken.ACORDE,
 ]);
 
 export class Parser {
@@ -139,10 +144,18 @@ export class Parser {
 
   // sentencia → declVar | declFuncion | asignacion | si | mientras
   //           | repetir | retornar | llamadaSent | bloque
+  //           | tempo | compasDecl | tocar | silencio | acorde | bloqueCompas
   private sentencia(): A.Sentencia {
     const t = this.actual();
     if (TIPOS_DE_DATO.includes(t.tipo)) return this.declVar();
     switch (t.tipo) {
+      case TipoToken.TEMPO: return this.tempo();
+      case TipoToken.COMPAS:
+        // Lookahead: "compas 4/4;" declara la métrica, "compas { ... }" es un compás
+        return this.mirar(1).tipo === TipoToken.LLAVE_IZQ ? this.bloqueCompas() : this.compasDecl();
+      case TipoToken.TOCAR: return this.tocar();
+      case TipoToken.SILENCIO: return this.silencio();
+      case TipoToken.ACORDE: return this.acorde();
       case TipoToken.FUNCION: return this.declFuncion();
       case TipoToken.SI: return this.si();
       case TipoToken.MIENTRAS: return this.mientras();
@@ -161,10 +174,10 @@ export class Parser {
     throw this.errorEn(t, `se esperaba el inicio de una sentencia pero se encontró ${describir(t)}`);
   }
 
-  // tipo → "entero" | "decimal" | "texto" | "logico"
+  // tipo → "entero" | "decimal" | "texto" | "logico" | "nota" | "duracion"
   private tipo(contexto: string): A.TipoDeclarado {
     const t = this.coincide(...TIPOS_DE_DATO);
-    if (!t) throw this.errorEn(this.actual(), `se esperaba un tipo (entero, decimal, texto o logico) ${contexto} pero se encontró ${describir(this.actual())}`);
+    if (!t) throw this.errorEn(this.actual(), `se esperaba un tipo (entero, decimal, texto, logico, nota o duracion) ${contexto} pero se encontró ${describir(this.actual())}`);
     return t.lexema as A.TipoDeclarado;
   }
 
@@ -275,6 +288,66 @@ export class Parser {
     return { tipo: "Bloque", sentencias, linea: inicio.linea, columna: inicio.columna };
   }
 
+  // ---------------- sentencias musicales ----------------
+
+  // tempo → "tempo" ENTERO ";"
+  private tempo(): A.Tempo {
+    const inicio = this.avanzar();
+    const bpm = this.consumir(TipoToken.ENTERO, "después de 'tempo' (pulsos por minuto)");
+    this.consumir(TipoToken.PUNTO_COMA, "después del tempo");
+    return { tipo: "Tempo", bpm: bpm.valor as number, linea: inicio.linea, columna: inicio.columna };
+  }
+
+  // compasDecl → "compas" ENTERO "/" ENTERO ";"
+  private compasDecl(): A.CompasDecl {
+    const inicio = this.avanzar();
+    const num = this.consumir(TipoToken.ENTERO, "después de 'compas' (por ejemplo 4/4) o '{' para abrir un compás");
+    this.consumir(TipoToken.DIV, "entre los dos números de la métrica");
+    const den = this.consumir(TipoToken.ENTERO, "después de '/' en la métrica");
+    this.consumir(TipoToken.PUNTO_COMA, "después de la métrica");
+    return { tipo: "CompasDecl", numerador: num.valor as number, denominador: den.valor as number, linea: inicio.linea, columna: inicio.columna };
+  }
+
+  // bloqueCompas → "compas" bloque
+  private bloqueCompas(): A.BloqueCompas {
+    const inicio = this.avanzar();
+    const cuerpo = this.bloque();
+    return { tipo: "BloqueCompas", cuerpo, linea: inicio.linea, columna: inicio.columna };
+  }
+
+  // tocar → "tocar" expresion expresion ";"
+  // Las dos expresiones van seguidas: la primera termina donde ya no hay un operador
+  // ("tocar base + 7 negra": la nota es "base + 7" y la duración "negra").
+  private tocar(): A.Tocar {
+    const inicio = this.avanzar();
+    const nota = this.expresion();
+    const duracion = this.expresion();
+    this.consumir(TipoToken.PUNTO_COMA, "después de la duración");
+    return { tipo: "Tocar", nota, duracion, linea: inicio.linea, columna: inicio.columna };
+  }
+
+  // silencio → "silencio" expresion ";"
+  private silencio(): A.Silencio {
+    const inicio = this.avanzar();
+    const duracion = this.expresion();
+    this.consumir(TipoToken.PUNTO_COMA, "después de la duración del silencio");
+    return { tipo: "Silencio", duracion, linea: inicio.linea, columna: inicio.columna };
+  }
+
+  // acorde → "acorde" "[" expresion ( "," expresion )* "]" expresion ";"
+  private acorde(): A.Acorde {
+    const inicio = this.avanzar();
+    this.consumir(TipoToken.CORCHETE_IZQ, "después de 'acorde'");
+    const notas: A.Expresion[] = [];
+    do {
+      notas.push(this.expresion());
+    } while (this.coincide(TipoToken.COMA));
+    this.consumir(TipoToken.CORCHETE_DER, "para cerrar la lista de notas del acorde");
+    const duracion = this.expresion();
+    this.consumir(TipoToken.PUNTO_COMA, "después de la duración del acorde");
+    return { tipo: "Acorde", notas, duracion, linea: inicio.linea, columna: inicio.columna };
+  }
+
   // ---------------- expresiones (un método por nivel de precedencia) ----------------
 
   // expresion → o
@@ -340,11 +413,19 @@ export class Parser {
     return this.primario();
   }
 
-  // primario → ENTERO | DECIMAL | TEXTO | "verdadero" | "falso"
+  // primario → ENTERO | DECIMAL | TEXTO | NOTA | FIGURA | "verdadero" | "falso"
   //          | llamada | IDENT | "(" expresion ")"
+  // FIGURA → "redonda" | "blanca" | "negra" | "corchea" | "semicorchea"
   private primario(): A.Expresion {
     const t = this.actual();
+    if (FIGURAS_TOKEN.includes(t.tipo)) {
+      this.avanzar();
+      return { tipo: "Literal", valor: FIGURAS[t.lexema], tipoLiteral: "duracion", linea: t.linea, columna: t.columna };
+    }
     switch (t.tipo) {
+      case TipoToken.NOTA:
+        this.avanzar();
+        return { tipo: "Literal", valor: t.valor as number, tipoLiteral: "nota", linea: t.linea, columna: t.columna };
       case TipoToken.ENTERO:
         this.avanzar();
         return { tipo: "Literal", valor: t.valor as number, tipoLiteral: "entero", linea: t.linea, columna: t.columna };
