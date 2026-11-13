@@ -21,6 +21,27 @@ mientras (i < 36) {
 mostrar("Listo: " + i + " hexágonos");
 ```
 
+## Trazo también suena
+
+Las notas son parte del lenguaje (`do4`, `fa#3`, `sib5`) y cada compás se valida como en una partitura:
+
+```
+tempo 120;
+compas 4/4;
+instrumento("piano");
+compas { tocar mi4 negra; tocar mi4 negra; tocar fa4 negra; tocar sol4 negra; }
+compas { tocar mi4 negra + corchea; tocar re4 corchea; tocar re4 blanca; }
+```
+
+- **Léxico:** token NOTA con su valor MIDI (`do4` = 60). Lookahead para distinguir el condicional `si` de la nota `si4`.
+- **Semántico:** tipos `nota` y `duracion` (`do4 + 7` es `sol4`, `do4 + mi4` es error) y validación de compases:
+  `el compás 2 suma 3.5 tiempos pero la métrica 4/4 exige 4 (falta una corchea)`.
+- **Optimización:** plegado de transposiciones y duraciones, fusión de silencios.
+- **Ejecución:** eventos de sonido (frecuencia = 440·2^((midi−69)/12)) que suenan con la Web Audio API al presionar
+  **Ejecutar**; la pestaña **Partitura** los muestra como piano roll y la línea que suena se resalta en el editor.
+- Ejemplos 11 a 17. Detalle completo en [`AMPLIACION_MUSICA.md`](AMPLIACION_MUSICA.md).
+- Atajo para la exposición: `http://localhost:3000/?ejemplo=12&pestana=Partitura` abre un ejemplo en una pestaña.
+
 ## Cómo correrlo
 
 ```bash

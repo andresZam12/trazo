@@ -3,6 +3,8 @@
 Proyecto final de Compiladores (Ingeniería de Software, UCC Pasto). Equipo de 3 personas. Entrega en 7 días.
 Este archivo da a Claude Code todo el contexto del proyecto. Léelo completo antes de escribir código.
 
+> **Ampliación musical:** después de este archivo, lee `AMPLIACION_MUSICA.md` (notas, compases, sonido y pestaña Partitura).
+
 ## 1. Qué es
 
 Trazo es un lenguaje de programación pequeño, en español y con tipos estáticos. Su compilador e intérprete están
