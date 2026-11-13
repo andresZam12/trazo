@@ -34,7 +34,37 @@ export const FIRMAS_NATIVAS: FirmaNativa[] = [
   { nombre: "limpiar", parametros: [], retorno: "vacio", descripcion: "Borra el lienzo" },
   { nombre: "mostrar", parametros: [{ nombre: "mensaje", tipo: "texto" }], retorno: "vacio", aceptaCualquiera: true, descripcion: "Escribe en la consola" },
   { nombre: "aleatorio", parametros: [{ nombre: "min", tipo: "entero" }, { nombre: "max", tipo: "entero" }], retorno: "entero", descripcion: "Entero aleatorio entre min y max (semilla fija)" },
+  { nombre: "instrumento", parametros: [{ nombre: "nombre", tipo: "texto" }], retorno: "vacio", descripcion: 'Cambia el instrumento: "piano", "organo", "flauta" u "8bit"' },
+  { nombre: "volumen", parametros: [{ nombre: "v", tipo: "decimal" }], retorno: "vacio", descripcion: "Volumen de las notas siguientes, de 0 a 1" },
+  { nombre: "dibujar_melodia", parametros: [{ nombre: "activar", tipo: "logico" }], retorno: "vacio", descripcion: "Si es verdadero, cada nota mueve el lápiz a una altura según la nota" },
 ];
+
+/** Instrumentos que entiende el reproductor de la interfaz. */
+export const INSTRUMENTOS = ["piano", "organo", "flauta", "8bit"] as const;
+export type Instrumento = (typeof INSTRUMENTOS)[number];
+
+/** Una nota que debe sonar. Los tiempos van en segundos desde el inicio. */
+export interface EventoSonido {
+  midi: number;
+  frecuencia: number;
+  inicio: number;
+  duracion: number;
+  linea: number;
+  instrumento: Instrumento;
+  volumen: number;
+}
+
+/** Dónde empieza cada compás en el tiempo, para dibujar sus barras en la partitura. */
+export interface MarcaCompas {
+  numero: number;
+  inicio: number;
+  linea: number;
+}
+
+/** Frecuencia en Hz de una nota MIDI: la4 (69) = 440 Hz y cada semitono multiplica por 2^(1/12). */
+export function frecuenciaDe(midi: number): number {
+  return 440 * 2 ** ((midi - 69) / 12);
+}
 
 export const COLORES: Record<string, string> = {
   rojo: "#ef4444",

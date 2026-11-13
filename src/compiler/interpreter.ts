@@ -8,19 +8,44 @@
 
 import type * as A from "./ast";
 import { crearError, ErrorCompilacion } from "./errors";
-import { aTexto, ComandoDibujo, crearAleatorio, ejecutarNativa, EstadoLapiz, FIRMAS_NATIVAS, lapizInicial } from "./natives";
+import {
+  aTexto,
+  ComandoDibujo,
+  crearAleatorio,
+  ejecutarNativa,
+  EstadoLapiz,
+  EventoSonido,
+  FIRMAS_NATIVAS,
+  frecuenciaDe,
+  Instrumento,
+  INSTRUMENTOS,
+  lapizInicial,
+  MarcaCompas,
+} from "./natives";
 import type { TipoTrazo } from "./semantic/types";
+import { nombreNota } from "./tokens";
+import { imprimirDuracion } from "./printer";
 
 type Valor = number | string | boolean;
 
 export const LIMITE_PASOS = 100_000;
 export const LIMITE_RECURSION = 200;
 
+/** Píxeles que avanza el lápiz por cada tiempo y por cada semitono con dibujar_melodia. */
+const PX_POR_TIEMPO = 32;
+const PX_POR_SEMITONO = 7;
+
+const redondear = (n: number) => Math.round(n * 1000) / 1000;
+
 export interface ResultadoEjecucion {
   comandos: ComandoDibujo[];
   consola: string[];
   pasos: number;
   error: ErrorCompilacion | null;
+  sonidos: EventoSonido[];
+  marcasCompas: MarcaCompas[];
+  /** Duración total de la música en segundos. */
+  segundos: number;
 }
 
 /** Error en tiempo de ejecución (división entre cero, bucle infinito...). */
@@ -73,6 +98,14 @@ export class Interprete {
   private lapiz: EstadoLapiz = lapizInicial();
   private aleatorio = crearAleatorio();
   private global = new Entorno(null);
+  // Estado musical
+  private sonidos: EventoSonido[] = [];
+  private marcasCompas: MarcaCompas[] = [];
+  private segundos = 0;
+  private bpm = 100;
+  private instrumento: Instrumento = "piano";
+  private volumen = 0.8;
+  private dibujarMelodia = false;
 
   ejecutar(programa: A.Programa): ResultadoEjecucion {
     // Las funciones se registran primero: se pueden llamar antes de declararse
@@ -89,7 +122,15 @@ export class Interprete {
         throw e;
       }
     }
-    return { comandos: this.comandos, consola: this.consola, pasos: this.pasos, error };
+    return {
+      comandos: this.comandos,
+      consola: this.consola,
+      pasos: this.pasos,
+      error,
+      sonidos: this.sonidos,
+      marcasCompas: this.marcasCompas,
+      segundos: redondear(this.segundos),
+    };
   }
 
   /** Cada sentencia ejecutada cuenta un paso; así se detectan bucles infinitos. */
@@ -151,7 +192,78 @@ export class Interprete {
       case "Bloque":
         this.bloque(s, entorno);
         return;
+      case "Tempo":
+        this.bpm = s.bpm;
+        return;
+      case "CompasDecl":
+        return; // la métrica solo se usa al validar, en el chequeador
+      case "BloqueCompas":
+        this.marcasCompas.push({ numero: s.numero ?? 0, inicio: redondear(this.segundos), linea: s.linea });
+        this.bloque(s.cuerpo, entorno);
+        return;
+      case "Tocar": {
+        const midi = this.expresion(s.nota, entorno) as number;
+        const tiempos = this.expresion(s.duracion, entorno) as number;
+        this.sonar([midi], tiempos, s);
+        return;
+      }
+      case "Acorde": {
+        const notas = s.notas.map((n) => this.expresion(n, entorno) as number);
+        const tiempos = this.expresion(s.duracion, entorno) as number;
+        this.sonar(notas, tiempos, s);
+        return;
+      }
+      case "Silencio": {
+        const tiempos = this.expresion(s.duracion, entorno) as number;
+        if (this.dibujarMelodia) this.moverLapizMelodia(null, tiempos, s.linea);
+        this.segundos += this.aSegundos(tiempos);
+        return;
+      }
     }
+  }
+
+  // ---------------- música ----------------
+
+  /** Una negra dura 60 / tempo segundos. */
+  private aSegundos(tiempos: number): number {
+    return (tiempos * 60) / this.bpm;
+  }
+
+  /** Programa una o varias notas al mismo tiempo (un acorde) y avanza el reloj. */
+  private sonar(notas: number[], tiempos: number, nodo: { linea: number; columna: number }) {
+    if (tiempos <= 0) throw new ErrorEjecucion(`la duración debe ser mayor que cero`, nodo.linea, nodo.columna);
+    const duracion = this.aSegundos(tiempos);
+    for (const midi of notas) {
+      if (midi < 0 || midi > 127) throw new ErrorEjecucion(`nota fuera del rango MIDI 0 a 127 (da ${midi})`, nodo.linea, nodo.columna);
+      this.sonidos.push({
+        midi,
+        frecuencia: redondear(frecuenciaDe(midi)),
+        inicio: redondear(this.segundos),
+        duracion: redondear(duracion),
+        linea: nodo.linea,
+        instrumento: this.instrumento,
+        volumen: this.volumen,
+      });
+    }
+    if (this.dibujarMelodia) this.moverLapizMelodia(notas[0], tiempos, nodo.linea);
+    this.segundos += duracion;
+  }
+
+  /**
+   * "La melodía dibuja su forma": cada nota avanza el lápiz hacia la derecha según su
+   * duración y lo pone a una altura según la nota (do4 en la altura 0). Un silencio
+   * avanza sin dibujar.
+   */
+  private moverLapizMelodia(midi: number | null, tiempos: number, linea: number) {
+    const x = redondear(this.lapiz.x + tiempos * PX_POR_TIEMPO);
+    const y = midi === null ? this.lapiz.y : redondear((midi - 60) * PX_POR_SEMITONO);
+    if (midi !== null && this.lapiz.abajo) {
+      this.comandos.push({ tipo: "linea", x1: this.lapiz.x, y1: this.lapiz.y, x2: x, y2: y, color: this.lapiz.color, grosor: this.lapiz.grosor, angulo: this.lapiz.angulo, linea });
+    } else {
+      this.comandos.push({ tipo: "mover", x, y, angulo: this.lapiz.angulo, linea });
+    }
+    this.lapiz.x = x;
+    this.lapiz.y = y;
   }
 
   /** Un bloque crea un entorno nuevo, igual que en el chequeador crea un ámbito. */
@@ -204,6 +316,25 @@ export class Interprete {
         this.consola.push(textoTipado(args[0], e.argumentos[0]?.tipoDato));
         return undefined;
       }
+      // Nativas musicales: cambian el estado del intérprete, no el lápiz
+      if (e.nombre === "instrumento") {
+        const nombre = String(args[0]).trim().toLowerCase();
+        if (!(INSTRUMENTOS as readonly string[]).includes(nombre)) {
+          throw new ErrorEjecucion(`instrumento desconocido '${args[0]}'. Usa "piano", "organo", "flauta" u "8bit"`, e.linea, e.columna);
+        }
+        this.instrumento = nombre as Instrumento;
+        return undefined;
+      }
+      if (e.nombre === "volumen") {
+        const v = args[0] as number;
+        if (v < 0 || v > 1) throw new ErrorEjecucion(`el volumen va de 0 a 1 (se recibió ${v})`, e.linea, e.columna);
+        this.volumen = v;
+        return undefined;
+      }
+      if (e.nombre === "dibujar_melodia") {
+        this.dibujarMelodia = args[0] === true;
+        return undefined;
+      }
       const r = ejecutarNativa(e.nombre, args, this.lapiz, this.comandos, this.consola, this.aleatorio, e.linea);
       if (r.error) throw new ErrorEjecucion(r.error, e.linea, e.columna);
       return r.valor;
@@ -244,11 +375,21 @@ export function aplicarBinaria(
   tipoB: TipoTrazo | undefined,
   nodo: { linea: number; columna: number },
 ): Valor {
+  // Una transposición (nota ± entero) debe quedar dentro del rango MIDI
+  const enRango = (v: number) => {
+    if (v < 0 || v > 127) throw new ErrorEjecucion(`la nota queda fuera del rango MIDI 0 a 127 (da ${v})`, nodo.linea, nodo.columna);
+    return v;
+  };
   switch (op) {
-    case "+":
+    case "+": {
       if (typeof a === "string" || typeof b === "string") return textoTipado(a, tipoA) + textoTipado(b, tipoB);
-      return (a as number) + (b as number);
-    case "-": return (a as number) - (b as number);
+      const r = (a as number) + (b as number);
+      return tipoA === "nota" || tipoB === "nota" ? enRango(r) : r;
+    }
+    case "-": {
+      const r = (a as number) - (b as number);
+      return tipoA === "nota" && tipoB !== "nota" ? enRango(r) : r;
+    }
     case "*": return (a as number) * (b as number);
     case "/": {
       if (b === 0) throw new ErrorEjecucion("división entre cero", nodo.linea, nodo.columna);
@@ -272,6 +413,9 @@ export function aplicarBinaria(
 /** Convierte a texto respetando el tipo: un decimal entero se escribe "2.0". */
 export function textoTipado(v: Valor | undefined, t: TipoTrazo | undefined): string {
   if (t === "decimal" && typeof v === "number" && Number.isInteger(v)) return v.toFixed(1);
+  // Las notas y duraciones son números por dentro, pero se muestran con su nombre
+  if (t === "nota" && typeof v === "number") return nombreNota(v);
+  if (t === "duracion" && typeof v === "number") return imprimirDuracion(v);
   return aTexto(v);
 }
 
@@ -281,6 +425,8 @@ function valorPorDefecto(t: A.TipoDeclarado): Valor {
     case "decimal": return 0;
     case "texto": return "";
     case "logico": return false;
+    case "nota": return 60; // do4
+    case "duracion": return 1; // negra
   }
 }
 

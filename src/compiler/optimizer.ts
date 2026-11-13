@@ -18,12 +18,16 @@ import { aplicarBinaria, ErrorEjecucion } from "./interpreter";
 import { imprimirExpresion, imprimirSentencia } from "./printer";
 import { siempreRetorna } from "./semantic/checker";
 import type { TipoTrazo } from "./semantic/types";
+import { FIGURAS } from "./tokens";
 
 export type ReglaOptimizacion =
   | "Plegado de constantes"
   | "Propagación de constantes"
   | "Eliminación de código muerto"
-  | "Simplificación algebraica";
+  | "Simplificación algebraica"
+  | "Plegado de transposiciones"
+  | "Plegado de duraciones"
+  | "Fusión de silencios";
 
 export interface CambioOptimizacion {
   regla: ReglaOptimizacion;
@@ -68,6 +72,18 @@ export class Optimizador {
     const resultado: A.Sentencia[] = [];
     for (let i = 0; i < lista.length; i++) {
       const nueva = this.sentencia(lista[i]);
+      // Fusión de silencios: dos silencios seguidos cuya suma es una figura → uno solo
+      const previa = resultado.at(-1);
+      if (nueva?.tipo === "Silencio" && previa?.tipo === "Silencio" && nueva.duracion.tipo === "Literal" && previa.duracion.tipo === "Literal") {
+        const suma = (previa.duracion.valor as number) + (nueva.duracion.valor as number);
+        if (Object.values(FIGURAS).includes(suma)) {
+          const antes = `${imprimirSentencia(previa)} ${imprimirSentencia(nueva)}`;
+          const fusion: A.Silencio = { ...previa, duracion: literal(suma, "duracion", previa.duracion) };
+          resultado[resultado.length - 1] = fusion;
+          this.registrar("Fusión de silencios", previa.linea, antes, imprimirSentencia(fusion));
+          continue;
+        }
+      }
       if (nueva) resultado.push(nueva);
       if (nueva && !nivelPrincipal && siempreRetorna(nueva) && i < lista.length - 1) {
         const muertas = lista.slice(i + 1);
@@ -142,6 +158,17 @@ export class Optimizador {
         }
         return { ...s, veces, cuerpo: this.bloque(s.cuerpo) };
       }
+      case "Tempo":
+      case "CompasDecl":
+        return s;
+      case "Tocar":
+        return { ...s, nota: this.expresion(s.nota), duracion: this.expresion(s.duracion) };
+      case "Silencio":
+        return { ...s, duracion: this.expresion(s.duracion) };
+      case "Acorde":
+        return { ...s, notas: s.notas.map((n) => this.expresion(n)), duracion: this.expresion(s.duracion) };
+      case "BloqueCompas":
+        return { ...s, cuerpo: this.bloque(s.cuerpo) };
     }
   }
 
@@ -199,12 +226,22 @@ export class Optimizador {
       if (err instanceof ErrorEjecucion) return null;
       throw err;
     }
+    const ta = a.tipoLiteral;
+    const tb = b.tipoLiteral;
     let tipo: A.TipoDeclarado;
+    let regla: ReglaOptimizacion = "Plegado de constantes";
     if (typeof valor === "boolean") tipo = "logico";
     else if (typeof valor === "string") tipo = "texto";
-    else tipo = a.tipoLiteral === "decimal" || b.tipoLiteral === "decimal" ? "decimal" : "entero";
+    else if (ta === "nota" || tb === "nota") {
+      // do4 + 7 → sol4 ; mi4 - do4 → 4 (un intervalo es un entero)
+      tipo = ta === "nota" && tb === "nota" ? "entero" : "nota";
+      regla = "Plegado de transposiciones";
+    } else if (ta === "duracion" || tb === "duracion") {
+      tipo = "duracion"; // negra * 2 → blanca
+      regla = "Plegado de duraciones";
+    } else tipo = ta === "decimal" || tb === "decimal" ? "decimal" : "entero";
     const nuevo = literal(valor, tipo, e);
-    this.registrar("Plegado de constantes", e.linea, imprimirExpresion(e), imprimirExpresion(nuevo));
+    this.registrar(regla, e.linea, imprimirExpresion(e), imprimirExpresion(nuevo));
     return nuevo;
   }
 
@@ -293,6 +330,7 @@ function buscarConstantes(p: A.Programa): Map<string, A.Literal> {
         break;
       case "Mientras":
       case "Repetir":
+      case "BloqueCompas":
         s.cuerpo.sentencias.forEach(visitar);
         break;
     }

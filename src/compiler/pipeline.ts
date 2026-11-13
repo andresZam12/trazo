@@ -11,7 +11,8 @@ import { contarNodos } from "./ast";
 import { ErrorCompilacion, Fase, ordenarErrores } from "./errors";
 import { interpretar } from "./interpreter";
 import { analizarLexico } from "./lexer";
-import type { ComandoDibujo } from "./natives";
+import type { ComandoDibujo, EventoSonido, MarcaCompas } from "./natives";
+import type { InfoCompas } from "./semantic/checker";
 import { CambioOptimizacion, optimizar } from "./optimizer";
 import { analizarSintaxis } from "./parser";
 import { analizarSemantica } from "./semantic/checker";
@@ -24,6 +25,8 @@ export interface InfoFase {
   nombre: Fase;
   estado: EstadoFase;
   ms: number;
+  /** Texto corto extra, por ejemplo "24 notas, 9.8 s" en la ejecución. */
+  detalle?: string;
 }
 
 export interface ResultadoCompilacion {
@@ -34,7 +37,16 @@ export interface ResultadoCompilacion {
   optimizaciones: CambioOptimizacion[];
   errores: ErrorCompilacion[];
   advertencias: ErrorCompilacion[];
-  ejecucion: { comandos: ComandoDibujo[]; consola: string[]; pasos: number } | null;
+  ejecucion: {
+    comandos: ComandoDibujo[];
+    consola: string[];
+    pasos: number;
+    sonidos: EventoSonido[];
+    marcasCompas: MarcaCompas[];
+    segundos: number;
+  } | null;
+  /** Compases validados por el chequeador (vacío si no hubo fase semántica). */
+  compases: InfoCompas[];
   fases: InfoFase[];
   /** Métricas para la pestaña Optimización. */
   metricas: { nodosAntes: number; nodosDespues: number; pasosAntes: number | null; pasosDespues: number | null };
@@ -68,6 +80,7 @@ export function compilar(fuente: string, opciones: OpcionesCompilacion = {}): Re
     errores,
     advertencias,
     ejecucion: null,
+    compases: [],
     fases,
     metricas: { nodosAntes: 0, nodosDespues: 0, pasosAntes: null, pasosDespues: null },
   };
@@ -104,6 +117,7 @@ export function compilar(fuente: string, opciones: OpcionesCompilacion = {}): Re
   errores.push(...sem.errores);
   advertencias.push(...sem.advertencias);
   resultado.tablaSimbolos = sem.tablaSimbolos;
+  resultado.compases = sem.compases;
   fases.push({ nombre: "Semántico", estado: sem.errores.length ? "error" : "ok", ms: msSem });
   if (sem.errores.length) {
     omitirDesde(["Optimización", "Ejecución"]);
@@ -124,8 +138,16 @@ export function compilar(fuente: string, opciones: OpcionesCompilacion = {}): Re
   resultado.metricas.pasosAntes = usarOptimizado ? otro.pasos : ej.pasos;
   resultado.metricas.pasosDespues = usarOptimizado ? ej.pasos : otro.pasos;
 
-  resultado.ejecucion = { comandos: ej.comandos, consola: ej.consola, pasos: ej.pasos };
+  resultado.ejecucion = {
+    comandos: ej.comandos,
+    consola: ej.consola,
+    pasos: ej.pasos,
+    sonidos: ej.sonidos,
+    marcasCompas: ej.marcasCompas,
+    segundos: ej.segundos,
+  };
   if (ej.error) errores.push(ej.error);
-  fases.push({ nombre: "Ejecución", estado: ej.error ? "error" : "ok", ms: msEj });
+  const detalle = ej.sonidos.length ? `${ej.sonidos.length} notas, ${ej.segundos.toFixed(1)} s` : undefined;
+  fases.push({ nombre: "Ejecución", estado: ej.error ? "error" : "ok", ms: msEj, detalle });
   return terminar();
 }
