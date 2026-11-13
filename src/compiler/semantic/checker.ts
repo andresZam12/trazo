@@ -206,7 +206,7 @@ export class Chequeador {
     const numero = this.compases.length + 1;
     s.numero = numero;
     this.enCompas = true;
-    this.bloque(s.cuerpo); // revisa tipos y ámbitos como cualquier bloque
+    this.bloque(s.cuerpo, `compás ${numero}`); // revisa tipos y ámbitos como cualquier bloque
     this.enCompas = false;
 
     const { numerador, denominador } = this.metrica;
@@ -257,8 +257,8 @@ export class Chequeador {
   }
 
   /** Cada bloque { } abre un ámbito nuevo que se cierra al terminar. */
-  private bloque(b: A.Bloque) {
-    this.tabla.abrir("bloque", "bloque");
+  private bloque(b: A.Bloque, nombre = "bloque") {
+    this.tabla.abrir(nombre, "bloque");
     this.revisarSentencias(b.sentencias);
     this.advertirNoUsadas(this.tabla.cerrar());
   }

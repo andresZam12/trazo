@@ -162,7 +162,39 @@ mientras (i < 12) {
 }`,
   },
   {
-    titulo: "8. Errores comunes",
+    titulo: "8. Música",
+    texto: [
+      "Las notas se escriben con su nombre y su octava: do4 es el do central, fa#3 es fa sostenido y sib4 es si bemol. Por dentro cada nota es un número (do4 = 60), así que sumarle un entero la sube esa cantidad de semitonos: do4 + 7 es sol4.",
+      "tocar nota duración; hace sonar una nota. Las duraciones son figuras: redonda (4 tiempos), blanca (2), negra (1), corchea (½) y semicorchea (¼). Se pueden combinar: negra + corchea, negra * 2.",
+      "compas 4/4; fija la métrica. Cada compas { ... } debe sumar exactamente esos tiempos; si no, Trazo dice qué figura falta o sobra. Presiona ▶ Ejecutar para escucharla y abre la pestaña Partitura.",
+    ],
+    tabla: {
+      columnas: ["Escribes", "Hace"],
+      filas: [
+        ["tempo 120;", "velocidad: negras por minuto (por defecto 100)"],
+        ["compas 3/4;", "métrica de los compases siguientes"],
+        ["tocar do4 negra;", "toca una nota"],
+        ["silencio corchea;", "un silencio"],
+        ["acorde [do4, mi4, sol4] blanca;", "varias notas a la vez"],
+        ["instrumento(\"flauta\");", "piano, organo, flauta u 8bit"],
+        ["volumen(0.5);", "volumen de 0 a 1"],
+        ["dibujar_melodia(verdadero);", "cada nota mueve el lápiz: la melodía dibuja su forma"],
+      ],
+    },
+    ejemplo: `tempo 120;
+compas 4/4;
+instrumento("piano");
+
+funcion frase(nota base) {
+  compas { tocar base negra; tocar base + 2 negra; tocar base + 4 blanca; }
+}
+
+frase(do4);
+frase(fa4);
+compas { acorde [do4, mi4, sol4] redonda; }`,
+  },
+  {
+    titulo: "9. Errores comunes",
     texto: [
       "Olvidar el ; al final de una línea → error sintáctico.",
       "Usar una variable sin crearla (escribir suma = 5; sin entero antes) → error semántico.",
@@ -170,6 +202,9 @@ mientras (i < 12) {
       "Poner un número como condición: si (x) {...} → la condición debe ser una comparación, por ejemplo si (x > 0).",
       "Guardar un decimal en un entero: entero n = 2.5; → error de tipos.",
       "Escribir print o printf: en Trazo se usa mostrar(...).",
+      "Usar nota, tocar, negra, compas... como nombres de variables: también son palabras reservadas.",
+      "Un compás que no suma lo que exige la métrica (por ejemplo 3.5 tiempos en 4/4) → error semántico que dice qué figura falta o sobra.",
+      "Sumar dos notas (do4 + mi4): para que suenen juntas se usa acorde [do4, mi4] negra;",
     ],
   },
 ];

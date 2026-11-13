@@ -3,6 +3,7 @@
 // Pestaña Símbolos: el árbol de ámbitos anidados de la tabla de símbolos.
 
 import { useState } from "react";
+import type { InfoCompas } from "@/compiler/semantic/checker";
 import type { SnapshotAmbito } from "@/compiler/semantic/symbolTable";
 
 const COLOR_CAT: Record<string, string> = {
@@ -52,7 +53,7 @@ function AmbitoVista({ ambito, nivel, verNativas }: { ambito: SnapshotAmbito; ni
   );
 }
 
-export default function SimbolosTab({ tabla }: { tabla: SnapshotAmbito | null }) {
+export default function SimbolosTab({ tabla, compases }: { tabla: SnapshotAmbito | null; compases: InfoCompas[] }) {
   const [verNativas, setVerNativas] = useState(false);
   if (!tabla)
     return <p className="p-4 text-slate-400">La tabla de símbolos se construye en la fase semántica (corrige primero los errores léxicos y sintácticos).</p>;
@@ -62,6 +63,37 @@ export default function SimbolosTab({ tabla }: { tabla: SnapshotAmbito | null })
         <input type="checkbox" checked={verNativas} onChange={(e) => setVerNativas(e.target.checked)} /> mostrar funciones nativas del ámbito global
       </label>
       <AmbitoVista ambito={tabla} nivel={0} verNativas={verNativas} />
+
+      {compases.length > 0 && (
+        <section className="mt-6">
+          <h3 className="mb-1 text-sm font-semibold text-slate-200">Compases</h3>
+          <p className="mb-2 text-xs text-slate-500">Cada compás debe sumar los tiempos que exige la métrica (en negras: 4/4 = 4, 3/4 = 3, 6/8 = 3).</p>
+          <table className="mono text-xs">
+            <thead className="text-left text-slate-500">
+              <tr>
+                <th className="pr-4">Compás</th>
+                <th className="pr-4">Línea</th>
+                <th className="pr-4">Métrica</th>
+                <th className="pr-4">Suma</th>
+                <th className="pr-4">Exige</th>
+                <th>Válido</th>
+              </tr>
+            </thead>
+            <tbody>
+              {compases.map((c) => (
+                <tr key={c.numero}>
+                  <td className="pr-4 text-slate-200">{c.numero}</td>
+                  <td className="pr-4 text-slate-400">{c.linea}</td>
+                  <td className="pr-4 text-sky-400">{c.metrica}</td>
+                  <td className="pr-4 text-slate-200">{c.suma ?? "?"}</td>
+                  <td className="pr-4 text-slate-400">{c.esperado}</td>
+                  <td className={c.valido ? "text-emerald-400" : "text-red-400"}>{c.valido ? "sí" : "no"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
     </div>
   );
 }

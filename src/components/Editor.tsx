@@ -30,7 +30,7 @@ type EditorMonaco = Parameters<OnMount>[0];
 function registrarTrazo(monaco: Monaco) {
   if (monaco.languages.getLanguages().some((l: { id: string }) => l.id === "trazo")) return;
   monaco.languages.register({ id: "trazo" });
-  const tipos = ["entero", "decimal", "texto", "logico"];
+  const tipos = ["entero", "decimal", "texto", "logico", "nota", "duracion"];
   monaco.languages.setMonarchTokensProvider("trazo", {
     tipos,
     palabras: Object.keys(PALABRAS_RESERVADAS).filter((p) => !tipos.includes(p)),
@@ -41,11 +41,13 @@ function registrarTrazo(monaco: Monaco) {
         [/\/\*/, "comment", "@comentario"],
         [/"([^"\\]|\\.)*$/, "string.invalid"],
         [/"/, "string", "@texto"],
+        // Notas musicales (do4, fa#3, sib5) antes que los identificadores
+        [/(sol|do|re|mi|fa|la|si)[#b]?[0-8](?![\wáéíóúÁÉÍÓÚñÑüÜ])/, "nota"],
         [/\d+\.\d+/, "number.float"],
         [/\d+/, "number"],
         [/[a-zA-Z_áéíóúÁÉÍÓÚñÑüÜ][\wáéíóúÁÉÍÓÚñÑüÜ]*/, { cases: { "@tipos": "type", "@palabras": "keyword", "@nativas": "predefined", "@default": "identifier" } }],
         [/[=!<>]=|[+\-*/%<>=]/, "operator"],
-        [/[{}()]/, "@brackets"],
+        [/[{}()\[\]]/, "@brackets"],
         [/[;,]/, "delimiter"],
       ],
       comentario: [[/\*\//, "comment", "@pop"], [/./, "comment"]],
@@ -54,8 +56,8 @@ function registrarTrazo(monaco: Monaco) {
   });
   monaco.languages.setLanguageConfiguration("trazo", {
     comments: { lineComment: "//", blockComment: ["/*", "*/"] },
-    brackets: [["{", "}"], ["(", ")"]],
-    autoClosingPairs: [{ open: "{", close: "}" }, { open: "(", close: ")" }, { open: '"', close: '"' }],
+    brackets: [["{", "}"], ["(", ")"], ["[", "]"]],
+    autoClosingPairs: [{ open: "{", close: "}" }, { open: "(", close: ")" }, { open: "[", close: "]" }, { open: '"', close: '"' }],
   });
   monaco.editor.defineTheme("trazo-oscuro", {
     base: "vs-dark",
@@ -66,6 +68,7 @@ function registrarTrazo(monaco: Monaco) {
       { token: "predefined", foreground: "facc15" },
       { token: "number", foreground: "fb923c" },
       { token: "number.float", foreground: "fb923c" },
+      { token: "nota", foreground: "2dd4bf", fontStyle: "bold" },
       { token: "string", foreground: "4ade80" },
       { token: "string.escape", foreground: "86efac", fontStyle: "bold" },
       { token: "comment", foreground: "64748b", fontStyle: "italic" },

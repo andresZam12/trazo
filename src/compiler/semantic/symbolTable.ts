@@ -62,7 +62,8 @@ export class TablaSimbolos {
 
   /** Entra a un ámbito nuevo (push en la pila). */
   abrir(nombre: string, tipo: "funcion" | "bloque"): Ambito {
-    const etiqueta = tipo === "bloque" ? `bloque#${this.contador}` : nombre;
+    // Un bloque anónimo se numera (bloque#3); un compás llega con su nombre ("compás 2")
+    const etiqueta = tipo === "bloque" && nombre === "bloque" ? `bloque#${this.contador}` : nombre;
     this.actual = this.nuevoAmbito(etiqueta, tipo, this.actual);
     return this.actual;
   }

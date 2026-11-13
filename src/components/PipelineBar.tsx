@@ -21,6 +21,7 @@ export default function PipelineBar({ fases }: { fases: InfoFase[] }) {
           <div className={`flex items-center gap-2 rounded-md border px-3 py-1 text-sm ${ESTILO[f.estado]}`} title={`Fase ${f.nombre}: ${f.estado}`}>
             <span className="font-bold">{ICONO[f.estado]}</span>
             <span className="font-medium">{f.nombre}</span>
+            {f.detalle && <span className="mono text-xs opacity-80">· {f.detalle}</span>}
           </div>
           {i < fases.length - 1 && <span className="text-slate-600 px-1">→</span>}
         </div>

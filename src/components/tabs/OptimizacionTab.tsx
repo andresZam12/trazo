@@ -12,6 +12,9 @@ const COLOR_REGLA: Record<string, string> = {
   "Propagación de constantes": "bg-sky-500/15 text-sky-300",
   "Eliminación de código muerto": "bg-red-500/15 text-red-300",
   "Simplificación algebraica": "bg-purple-500/15 text-purple-300",
+  "Plegado de transposiciones": "bg-emerald-500/15 text-emerald-300",
+  "Plegado de duraciones": "bg-yellow-500/15 text-yellow-300",
+  "Fusión de silencios": "bg-pink-500/15 text-pink-300",
 };
 
 function Metrica({ titulo, antes, despues }: { titulo: string; antes: number | null; despues: number | null }) {

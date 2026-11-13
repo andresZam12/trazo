@@ -3,7 +3,9 @@
 // Página principal de Trazo: editor a la izquierda, pestañas a la derecha y la
 // barra del pipeline arriba. Recompila en vivo 400 ms después de dejar de escribir.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { reproducir, type Reproduccion } from "@/components/audio";
+import PartituraTab from "@/components/tabs/PartituraTab";
 import Editor, { type Rango } from "@/components/Editor";
 import Lienzo from "@/components/Lienzo";
 import Manual from "@/components/Manual";
@@ -18,8 +20,8 @@ import { compilar } from "@/compiler/pipeline";
 import type { ErrorCompilacion } from "@/compiler/errors";
 import { EJEMPLOS } from "@/examples";
 
-type Pestana = "Lienzo" | "Tokens" | "Árbol" | "Símbolos" | "Optimización" | "Errores" | "Consola";
-const PESTANAS: Pestana[] = ["Lienzo", "Tokens", "Árbol", "Símbolos", "Optimización", "Errores", "Consola"];
+type Pestana = "Lienzo" | "Partitura" | "Tokens" | "Árbol" | "Símbolos" | "Optimización" | "Errores" | "Consola";
+const PESTANAS: Pestana[] = ["Lienzo", "Partitura", "Tokens", "Árbol", "Símbolos", "Optimización", "Errores", "Consola"];
 const EJEMPLO_INICIAL = EJEMPLOS.find((e) => e.archivo.startsWith("04"))?.codigo ?? "";
 
 export default function Pagina() {
@@ -31,6 +33,20 @@ export default function Pagina() {
   const [irA, setIrA] = useState<(Rango & { n: number }) | null>(null);
   const [ejecucionId, setEjecucionId] = useState(0);
   const [manualAbierto, setManualAbierto] = useState(false);
+  const reproduccion = useRef<Reproduccion | null>(null);
+  const [inicioMusica, setInicioMusica] = useState<number | null>(null);
+
+  // Atajo para la exposición: ?ejemplo=12&pestana=Partitura abre ese ejemplo en esa pestaña
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const ej = EJEMPLOS.find((e) => e.archivo.startsWith((p.get("ejemplo") ?? "").padStart(2, "0")));
+    const pest = PESTANAS.find((x) => x === p.get("pestana"));
+    if (ej && p.get("ejemplo")) {
+      setCodigo(ej.codigo);
+      setCodigoCompilado(ej.codigo);
+    }
+    if (pest) setPestana(pest);
+  }, []);
 
   // Recompilación en vivo con debounce de 400 ms
   useEffect(() => {
@@ -41,18 +57,44 @@ export default function Pagina() {
   const r = useMemo(() => compilar(codigoCompilado, { usarOptimizado }), [codigoCompilado, usarOptimizado]);
   const problemas = useMemo(() => [...r.errores, ...r.advertencias], [r]);
 
+  const detenerMusica = () => {
+    reproduccion.current?.detener();
+    reproduccion.current = null;
+  };
+
   /** Carga un código en el editor y lo compila de inmediato (sin esperar el debounce). */
   const cargar = (c: string, destino: Pestana) => {
+    detenerMusica();
     setCodigo(c);
     setCodigoCompilado(c);
     setResaltado(null);
     setPestana(destino);
   };
 
+  /**
+   * Ejecutar: vuelve a dibujar y, si el programa toca música, la hace sonar.
+   * El sonido solo puede empezar con un clic (los navegadores bloquean el audio automático).
+   */
   const ejecutar = () => {
+    detenerMusica();
+    const res = compilar(codigo, { usarOptimizado });
     setCodigoCompilado(codigo);
     setEjecucionId((n) => n + 1);
-    setPestana(r.errores.length ? "Errores" : "Lienzo");
+    const sonidos = res.ejecucion?.sonidos ?? [];
+    const dibuja = res.ejecucion?.comandos.some((c) => c.tipo === "linea") ?? false;
+    setPestana(res.errores.length ? "Errores" : sonidos.length && !dibuja ? "Partitura" : "Lienzo");
+    if (res.errores.length || !sonidos.length) return;
+
+    const lineas = codigo.split("\n");
+    reproduccion.current = reproducir(
+      sonidos,
+      (linea) => setResaltado({ linea, columna: 1, longitud: Math.max(1, (lineas[linea - 1] ?? "").length) }),
+      () => {
+        setInicioMusica(null);
+        setResaltado(null);
+      },
+    );
+    setInicioMusica(reproduccion.current.inicioMs);
   };
 
   const irAError = (e: ErrorCompilacion) => {
@@ -84,13 +126,16 @@ export default function Pagina() {
           onChange={(e) => {
             const ej = EJEMPLOS.find((x) => x.archivo === e.target.value);
             if (!ej) return;
+            const n = Number(ej.archivo.slice(0, 2));
             const destino: Pestana = ej.archivo.includes("error")
               ? "Errores"
-              : ej.archivo.startsWith("07")
+              : n === 7
                 ? "Optimización"
-                : ej.archivo.startsWith("06")
+                : n === 6
                   ? "Consola"
-                  : "Lienzo";
+                  : n >= 11 && n <= 14
+                    ? "Partitura"
+                    : "Lienzo";
             cargar(ej.codigo, destino);
           }}
         >
@@ -107,6 +152,11 @@ export default function Pagina() {
         <button onClick={ejecutar} className="boton-trazo">
           ▶ Ejecutar
         </button>
+        {inicioMusica !== null && (
+          <button onClick={detenerMusica} className="boton-trazo">
+            ■ Detener música
+          </button>
+        )}
 
         {/* Interruptor: con degradado cuando está activo, con borde cuando no */}
         <button
@@ -152,7 +202,16 @@ export default function Pagina() {
             </div>
             {pestana === "Tokens" && <TokensTab tokens={r.tokens} onResaltar={setResaltado} />}
             {pestana === "Árbol" && <ArbolTab ast={r.ast} astOptimizado={r.astOptimizado} onResaltar={setResaltado} />}
-            {pestana === "Símbolos" && <SimbolosTab tabla={r.tablaSimbolos} />}
+            {pestana === "Partitura" && (
+              <PartituraTab
+                sonidos={r.ejecucion?.sonidos ?? []}
+                marcas={r.ejecucion?.marcasCompas ?? []}
+                compases={r.compases}
+                segundos={r.ejecucion?.segundos ?? 0}
+                inicioMs={inicioMusica}
+              />
+            )}
+            {pestana === "Símbolos" && <SimbolosTab tabla={r.tablaSimbolos} compases={r.compases} />}
             {pestana === "Optimización" && <OptimizacionTab r={r} />}
             {pestana === "Errores" && <ErroresTab errores={r.errores} advertencias={r.advertencias} onIr={irAError} />}
             {pestana === "Consola" && <ConsolaTab r={r} />}
@@ -165,7 +224,8 @@ export default function Pagina() {
         onCerrar={() => setManualAbierto(false)}
         onProbar={(c) => {
           setManualAbierto(false);
-          cargar(c, c.includes("mostrar") && !c.includes("avanzar") ? "Consola" : "Lienzo");
+          const musica = /\b(tocar|acorde)\b/.test(c);
+          cargar(c, musica ? "Partitura" : c.includes("mostrar") && !c.includes("avanzar") ? "Consola" : "Lienzo");
         }}
       />
     </main>
