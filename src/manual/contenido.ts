@@ -79,10 +79,10 @@ mostrar(no verdadero);`,
       "si ejecuta un bloque solo cuando la condición es verdadera. La condición va entre paréntesis y debe ser logico (algo verdadero o falso, no un número).",
       "Puedes encadenar varias opciones con sino si.",
     ],
-    ejemplo: `entero nota = 4;
-si (nota >= 4) {
+    ejemplo: `entero calificacion = 4;
+si (calificacion >= 4) {
   mostrar("Excelente");
-} sino si (nota >= 3) {
+} sino si (calificacion >= 3) {
   mostrar("Aprobado");
 } sino {
   mostrar("Reprobado");

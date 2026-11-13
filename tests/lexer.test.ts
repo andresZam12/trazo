@@ -62,6 +62,45 @@ describe("Lexer", () => {
     expect(errores[0].mensaje).toContain("sin cerrar");
   });
 
+  it("reconoce notas con su valor MIDI", () => {
+    const { tokens, errores } = analizarLexico("do4 la4 fa#3 sib5 dob4");
+    expect(errores).toEqual([]);
+    expect(tokens.slice(0, 5).map((t) => [t.tipo, t.valor])).toEqual([
+      [TipoToken.NOTA, 60],
+      [TipoToken.NOTA, 69],
+      [TipoToken.NOTA, 54],
+      [TipoToken.NOTA, 82],
+      [TipoToken.NOTA, 59],
+    ]);
+  });
+
+  it("usa lookahead para distinguir 'si' condicional de la nota si4", () => {
+    expect(tipos("si (x) si4 sib3 sino")).toEqual([
+      TipoToken.SI, TipoToken.PAR_IZQ, TipoToken.IDENT, TipoToken.PAR_DER,
+      TipoToken.NOTA, TipoToken.NOTA, TipoToken.SINO, TipoToken.EOF,
+    ]);
+  });
+
+  it("no confunde identificadores que empiezan como una nota", () => {
+    const { tokens } = analizarLexico("doble lados sol mi re2x");
+    expect(tokens.slice(0, 5).every((t) => t.tipo === TipoToken.IDENT)).toBe(true);
+  });
+
+  it("reconoce las palabras musicales", () => {
+    expect(tipos("tocar negra compas tempo acorde [ ]")).toEqual([
+      TipoToken.TOCAR, TipoToken.NEGRA, TipoToken.COMPAS, TipoToken.TEMPO, TipoToken.ACORDE,
+      TipoToken.CORCHETE_IZQ, TipoToken.CORCHETE_DER, TipoToken.EOF,
+    ]);
+  });
+
+  it("reporta octava fuera de rango y alteración inválida", () => {
+    const { errores } = analizarLexico("tocar do9 negra;\ntocar do##4 negra;");
+    expect(errores).toHaveLength(2);
+    expect(errores[0]).toMatchObject({ linea: 1, columna: 7 });
+    expect(errores[0].mensaje).toContain("octava fuera de rango en 'do9'");
+    expect(errores[1].mensaje).toContain("alteración inválida '##'");
+  });
+
   it("reporta números mal formados", () => {
     const { errores } = analizarLexico("3. 1.2.3 4.5");
     expect(errores.map((e) => e.mensaje)).toEqual([

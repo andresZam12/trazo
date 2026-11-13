@@ -4,12 +4,13 @@
 // los errores de la fase en una sola pasada.
 
 import { crearError, ErrorCompilacion } from "./errors";
-import { PALABRAS_RESERVADAS, TipoToken, Token } from "./tokens";
+import { PALABRAS_RESERVADAS, SEMITONOS, TipoToken, Token } from "./tokens";
 
 const LETRAS_ESPECIALES = "áéíóúÁÉÍÓÚñÑüÜ";
 
 function esLetra(c: string): boolean {
-  return (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_" || LETRAS_ESPECIALES.includes(c);
+  // c.length === 1: "".includes("") daría verdadero al final del archivo
+  return c.length === 1 && ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_" || LETRAS_ESPECIALES.includes(c));
 }
 
 function esDigito(c: string): boolean {
@@ -129,6 +130,8 @@ export class Lexer {
       ")": TipoToken.PAR_DER,
       "{": TipoToken.LLAVE_IZQ,
       "}": TipoToken.LLAVE_DER,
+      "[": TipoToken.CORCHETE_IZQ,
+      "]": TipoToken.CORCHETE_DER,
       ",": TipoToken.COMA,
       ";": TipoToken.PUNTO_COMA,
     };
@@ -195,8 +198,46 @@ export class Lexer {
     else this.agregar(TipoToken.ENTERO, lexema, linea, columna, parseInt(lexema, 10));
   }
 
+  /**
+   * Nota musical: (do|re|mi|fa|sol|la|si) + alteración opcional (# o b) + octava (0 a 8).
+   *
+   * LOOKAHEAD LÉXICO: "si" es a la vez la palabra del condicional y el nombre de una nota.
+   * Antes de leer una palabra se mira lo que viene justo después del nombre:
+   *   - si sigue un dígito ("si4") o una alteración + dígito ("sib4", "si#4") → es NOTA;
+   *   - si no ("si (x > 3)", "sino", "simple") → es la palabra reservada o un identificador.
+   * Lo mismo protege nombres como "doble" o "lados": "do" + "b" sin dígito no es una nota.
+   *
+   * Devuelve true si consumió una nota (válida o con error).
+   */
+  private intentarNota(linea: number, columna: number): boolean {
+    const resto = this.fuente.slice(this.pos, this.pos + 12);
+    // nombre, alteraciones (pueden venir mal escritas, como "##"), dígitos de la octava
+    const m = /^(sol|do|re|mi|fa|la|si)([#b]*)(\d+)/.exec(resto);
+    if (!m) return false;
+    // Si después de la octava sigue una letra o dígito, es un identificador (por ejemplo "la2x")
+    const despues = this.fuente[this.pos + m[0].length] ?? "";
+    if (esLetra(despues) || esDigito(despues)) return false;
+
+    const [lexema, nombre, alteracion, octavaTxt] = m;
+    for (let i = 0; i < lexema.length; i++) this.avanzar();
+
+    if (alteracion.length > 1 || (alteracion !== "" && alteracion !== "#" && alteracion !== "b")) {
+      this.error(`alteración inválida '${alteracion}' en '${lexema}': usa un solo '#' (sostenido) o una sola 'b' (bemol)`, linea, columna, lexema.length);
+      return true;
+    }
+    const octava = Number(octavaTxt);
+    if (octavaTxt.length > 1 || octava > 8) {
+      this.error(`octava fuera de rango en '${lexema}': la octava va de 0 a 8`, linea, columna, lexema.length);
+      return true;
+    }
+    const midi = (octava + 1) * 12 + SEMITONOS[nombre] + (alteracion === "#" ? 1 : alteracion === "b" ? -1 : 0);
+    this.agregar(TipoToken.NOTA, lexema, linea, columna, midi);
+    return true;
+  }
+
   /** Identificador o palabra reservada (se distinguen con la tabla de reservadas). */
   private identificador(linea: number, columna: number) {
+    if (this.intentarNota(linea, columna)) return;
     const inicio = this.pos;
     while (esLetra(this.actual()) || esDigito(this.actual())) this.avanzar();
     const lexema = this.fuente.slice(inicio, this.pos);
